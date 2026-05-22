@@ -1,0 +1,14 @@
+openai==1.69.0
+uvicorn==0.34.0
+fastapi==0.115.12
+asyncio==3.4.3
+anyio ==4.9.0
+typing==3.7.4.3
+uuid==1.30
+python-dotenv==1.1.0
+gunicorn==23.0.0
+ffmpeg==1.4
+pandas==2.3.3
+openpyxl
+openai-whisper
+python-multipart

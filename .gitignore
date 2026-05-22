@@ -1,0 +1,36 @@
+# macOS
+.DS_Store
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Backend runtime data
+fastapi/app/database/
+fastapi/app/loggings/
+fastapi/app/voice-model/
+fastapi/app/user_count.txt
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# React build output
+build/
+coverage/
+
+# Notebook/editor noise
+.ipynb_checkpoints/
+.jupyter/
+.vscode/
+.idea/

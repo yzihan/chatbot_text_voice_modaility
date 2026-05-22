@@ -1,0 +1,60 @@
+
+/* buttons */  
+  .btn-last-img{
+    background-image: url("../icons/btn-last.svg");
+  }
+  .btn-next-img{
+    background-image: url("../icons/btn-next.svg");
+  }
+  
+  
+  .btn-white-1{
+    background-color: #fff;
+    border-radius: 16px;
+    padding: 0.5rem 2rem;
+    color: #755349;
+  }
+  .btn-white-1:hover{
+    background-image: linear-gradient(to left, #f8f9fa, #e9ecef, #f8f9fa); /* bg-gray-1*/
+    cursor: pointer;
+  }
+  
+  
+  .btn-white-2{
+    background-color: #fff;
+    border-radius: 24px;
+    padding: 0 2rem;
+    color: #755349;
+  }
+  .btn-white-2:hover{
+    background-image: linear-gradient(to left, #f8f9fa, #e9ecef, #f8f9fa); /* bg-gray-1*/
+    cursor: pointer;
+  }
+
+  .btn-purple-1{
+    background-color: #7c3aed;
+    border-radius: 24px;
+    color: #fff;
+  }
+  .btn-purple-1:hover{
+    background-image: linear-gradient(to left, #7c3aed, #6d28d9, #7c3aed); /* bg-gray-1*/
+    cursor: pointer;
+  }
+
+
+
+/* CSS */
+.white-boarder-btn {
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: 2px solid #fff;
+  background-color: transparent;
+  color: #fff;
+}
+
+.white-boarder-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: rgba(255, 255, 255, 0.9) 2px 2px 10px;
+  font-weight: 500;
+}
+
