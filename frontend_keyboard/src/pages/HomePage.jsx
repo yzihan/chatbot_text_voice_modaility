@@ -35,17 +35,16 @@ function HomePage() {
             notify("Please select a option first!", "warning")
         }else if(option === "chatbot"){
             dispatch(chatActions.init());
-            // dispatch(chatActions.initChattingData());
-            // navigate("/input-select");
+            dispatch(chatActions.initChattingData());
+            navigate("/input-select");
 
             // dispatch(chatActions.initChattingData());
             // dispatch(chatActions.setInputMode(option));
             // navigate("/chatbot");
 
             // temperaly disable input selection
-            dispatch(chatActions.initChattingData());
-            dispatch(chatActions.setInputMode("keyboard"));
-            navigate("/chatbot");
+            // dispatch(chatActions.setInputMode("keyboard"));
+            // navigate("/chatbot");
         }else if(option === "survey"){
             notify("We are still working on this page...", "info")
             return;
@@ -67,7 +66,7 @@ function HomePage() {
         <div className="bg h-screen min-h-[640px] w-full min-w-[900px]">
             <div className="choice-page w-full h-full max-w-[1240px] min-w-[900px] mx-auto relative">
                 <div className="choice-header">
-                    <div className="choice-kicker">Psychat</div>
+                    <div className="choice-kicker">Modality</div>
                     <div className="choice-title">What would you like to do today?</div>
                 </div>
 
@@ -75,7 +74,7 @@ function HomePage() {
                     <button className={`selction-card ${option==="chatbot" ? "selected-option": ""}`} onClick={() => setOption("chatbot")}>
                         <img src={iconChatBot} alt="chatbot" className="choice-card-icon"></img>
                         <div className="choice-card-title">Start Chat</div>
-                        <div className="selection-card-description">Begin a new personality chat</div>
+                        <div className="selection-card-description">Start a new conversation</div>
                     </button>
 
                     {/* <button className={`selction-card ${option==="survey" ? "selected-option": ""}`} onClick={() => setOption("survey")}>

@@ -105,27 +105,35 @@ function HistoryPage() {
     }
 
     return ( 
-        <div className="bg h-screen min-h-[640px]  w-full min-w-[900px]">
-            <div className="w-full h-full max-w-[1240px] min-w-[900px] mx-auto flex flex-col justify-around p-16 items-center relative">
-                <div className="text-h2 font-bold">Check your previous chatbot histories</div>
+        <div className="bg h-screen min-h-[640px] w-full min-w-[900px]">
+            <div className="history-page w-full h-full max-w-[1240px] min-w-[900px] mx-auto relative">
+                <section className="history-panel">
+                    <div className="history-header">
+                        <div className="choice-kicker">Conversation history</div>
+                        <h1 className="history-title">Continue where you left off</h1>
+                        <p className="history-copy">Pick a previous session to reopen the same chat.</p>
+                    </div>
 
-                <div className="flex flex-col justify-start gap-8 w-[840px] h-[580px] overflow-auto">
-
+                    <div className="history-list">
                     {histories.map((interview, i) => {
                         return (
-                            <button key={`history-${i}`} className={`${interview.session_id === selectedHistory && "bg-history-choosen"} flex flex-row items-center gap-2 h-20 border-yellow-500 border-2 rounded-lg py-2 px-4 text-h5 font-semibold shadow-card-hover hover:cursor-pointer`} onClick={() => onClickInterview(interview.session_id)}>
-                                <div className="w-16"><img src={chatIcon} alt="a chat bubble"></img></div>
-                                <div className="w-64">{interview.questions_answered} questions answered.</div>
-                                <div className="grow text-right">Last updated time: {formatToCentralTime(interview.updated_time)}</div>
+                            <button key={`history-${i}`} className={`${interview.session_id === selectedHistory ? "bg-history-choosen" : ""} history-item`} onClick={() => onClickInterview(interview.session_id)}>
+                                <div className="history-icon"><img src={chatIcon} alt="a chat bubble"></img></div>
+                                <div className="history-main">
+                                    <div className="history-count">{interview.questions_answered} questions answered</div>
+                                    <div className="history-time">Last updated {formatToCentralTime(interview.updated_time)}</div>
+                                </div>
+                                <div className="history-status">{interview.session_id === selectedHistory ? "Selected" : "Available"}</div>
                             </button>
                         );
                     })}
                  
-                </div>
+                    </div>
 
-                <div className="flex justify-end h-[48px]">
-                    {selectedHistory && <button className="btn btn-black" onClick={nextPage}>Continue Interview</button>}
-                </div>
+                    <div className="history-actions">
+                        {selectedHistory && <button className="btn btn-black choice-primary-btn" onClick={nextPage}>Continue</button>}
+                    </div>
+                </section>
 
                 <button className="btn btn-black top-right-btn" onClick={goBack}>Back</button>
             </div>

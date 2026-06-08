@@ -259,7 +259,7 @@ function ConversationPanel({messages, loadingText, streamMultipleLines}) {
         <div className="conversation-panel relative">
             <div className="conversation-header">
                 <div>
-                    <div className="conversation-kicker">Psychat</div>
+                    <div className="conversation-kicker">Modality</div>
                     <div className="conversation-title">Nova</div>
                 </div>
                 <div className="conversation-status">{isEnded ? "Complete" : "In progress"}</div>

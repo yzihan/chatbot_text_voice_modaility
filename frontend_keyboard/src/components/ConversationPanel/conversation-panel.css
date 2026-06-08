@@ -1,11 +1,11 @@
 .conversation-panel {
     min-height: 0;
-    width: min(980px, calc(100vw - 128px));
-    height: calc(100vh - 150px);
+    width: min(1120px, calc(100vw - 96px));
+    height: calc(100vh - 96px);
     max-height: none;
     position: absolute;
     left: 50%;
-    top: 86px;
+    top: 48px;
     transform: translateX(-50%);
     display: flex;
     flex-direction: column;
@@ -14,26 +14,25 @@
     border: 1px solid rgba(124, 141, 161, 0.24);
     border-radius: 8px;
     background:
-        linear-gradient(145deg, rgba(255, 255, 255, 0.88), rgba(249, 251, 255, 0.62)),
-        radial-gradient(circle at 8% 10%, rgba(186, 205, 255, 0.2), transparent 28%),
-        radial-gradient(circle at 92% 12%, rgba(245, 182, 221, 0.18), transparent 24%);
-    box-shadow: 0 24px 70px rgba(38, 45, 68, 0.18), 0 1px 0 rgba(255, 255, 255, 0.9) inset;
-    backdrop-filter: blur(18px);
+        linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(249, 251, 255, 0.72)),
+        linear-gradient(90deg, rgba(111, 92, 255, 0.04), rgba(15, 154, 168, 0.05));
+    box-shadow: 0 28px 78px rgba(38, 45, 68, 0.17), 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+    backdrop-filter: blur(22px);
 }
 
 .conversation-panel-empty {
-    width: min(820px, calc(100vw - 128px));
-    height: min(420px, calc(100vh - 150px));
+    width: min(1120px, calc(100vw - 96px));
+    height: calc(100vh - 96px);
     min-height: 0;
 }
 
 .conversation-header {
-    min-height: 68px;
+    min-height: 76px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 24px;
-    padding: 12px 128px 12px 24px;
+    padding: 14px 132px 14px 28px;
     border-bottom: 1px solid rgba(132, 147, 168, 0.18);
     background: rgba(255, 255, 255, 0.58);
 }
@@ -48,7 +47,7 @@
 
 .conversation-title {
     color: #12151c;
-    font-size: 1.48rem;
+    font-size: 1.56rem;
     font-weight: 850;
     line-height: 1.1;
 }
@@ -75,21 +74,21 @@
     display: flex;
     flex-direction: column;
     gap: 18px;
-    padding: 22px 32px 32px;
+    padding: 24px 34px 34px;
     overflow-anchor: none;
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(248, 250, 255, 0.74));
 }
 
 .conversation-stream-buffer {
-    flex: 0 0 min(120px, 22%);
+    flex: 0 0 min(150px, 24%);
 }
 
 .conversation-body-empty {
     min-height: 0;
     height: auto;
-    padding: 16px 24px;
+    padding: 24px 34px;
     overflow: hidden;
-    justify-content: center;
+    justify-content: flex-start;
 }
 
 .conversation-body::-webkit-scrollbar {
@@ -105,7 +104,7 @@
 
 .conversation-bottom {
     width: 100%;
-    padding: 10px 18px 12px;
+    padding: 12px 20px 14px;
     border-top: 1px solid rgba(132, 147, 168, 0.16);
     background: rgba(255, 255, 255, 0.68);
     box-shadow: 0 -18px 38px rgba(55, 65, 88, 0.08);
@@ -121,7 +120,7 @@
     display: flex;
     align-items: flex-end;
     gap: 12px;
-    padding: 12px !important;
+    padding: 12px 14px !important;
     border-color: rgba(118, 137, 162, 0.22) !important;
     border-radius: 8px !important;
     background: rgba(255, 255, 255, 0.82) !important;
@@ -301,11 +300,11 @@
 
 .top-right-btn-chat {
     position: absolute;
-    top: 15px;
-    right: 22px;
+    top: 18px;
+    right: 24px;
     width: auto;
     min-width: 82px;
-    min-height: 34px;
+    min-height: 36px;
     border: 1px solid rgba(20, 24, 32, 0.12) !important;
     border-radius: 8px !important;
     background: linear-gradient(135deg, #232a34, #151a22) !important;
@@ -339,14 +338,14 @@
 @media (max-width: 900px) {
     .conversation-panel {
         width: calc(100vw - 28px);
-        height: calc(100vh - 86px);
+        height: calc(100vh - 72px);
         max-height: none;
-        top: 56px;
+        top: 36px;
     }
 
     .conversation-panel-empty {
         width: calc(100vw - 28px);
-        height: min(420px, calc(100vh - 86px));
+        height: calc(100vh - 72px);
     }
 
     .conversation-header {

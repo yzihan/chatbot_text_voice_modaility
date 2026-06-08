@@ -47,7 +47,6 @@ function LoginPage() {
     const renderForms = () => {
         return (                
             <div className="login-card">
-                <div className="choice-kicker">Psychat study</div>
                 <div className="login-title">Discover your personality through conversation</div>
                 <div className="login-copy">Enter your university email ending with .illinois.edu so we can connect your responses with extra credit.</div>
 
