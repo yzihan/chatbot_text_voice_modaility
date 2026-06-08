@@ -33,12 +33,13 @@ def get_question_code(user_index: int) -> str:
 
 
 class ConversationEngine:
-    def __init__(self, session_id, user_index:int, group: str, source: str, question_indices: List[str], user_info: Dict, root_node: DialogNode, save_path: str = 'conversation_state.txt'):
+    def __init__(self, session_id, user_index:int, group: str, source: str, question_indices: List[str], user_info: Dict, root_node: DialogNode, save_path: str = 'conversation_state.txt', selection_reason: str = ""):
         self.session_id = session_id
         self.user_index = user_index
         self.question_code = "HEX"
         self.group = group
         self.source = source
+        self.selection_reason = selection_reason
         self.question_indices = question_indices # ["F1Q", "F", ....]
 
         self.user_info: str = user_info
@@ -67,6 +68,7 @@ class ConversationEngine:
                 "user_index": self.user_index,
                 "question_code": self.question_code,
                 "group": self.group,
+                "selection_reason": self.selection_reason,
                 "source": self.source,
                 "question_indices": self.question_indices,
                 "questions_answered": self._questions_finished,
@@ -78,6 +80,7 @@ class ConversationEngine:
                 "user_index": self.user_index,
                 "question_code": self.question_code,
                 "group": self.group,
+                "selection_reason": self.selection_reason,
                 "source": self.source,
                 "question_indices": self.question_indices,
                 "root_node": self.root_node.id,
@@ -151,6 +154,7 @@ class ConversationEngine:
                 user_index=state["user_index"],
                 group=state.get("group"),
                 source=state.get("source"),
+                selection_reason=state.get("selection_reason", ""),
                 question_indices=state["question_indices"],
                 user_info=user_info,
                 root_node=root_node,
@@ -161,6 +165,7 @@ class ConversationEngine:
             engine.question_code = state.get("question_code", "")
             engine.group = state.get("group", "")
             engine.source = state.get("source", "")
+            engine.selection_reason = state.get("selection_reason", "")
 
             engine.node_history = [find_node_by_id(nid) for nid in state.get("node_history", [])]
             engine.complete_chatting_messages = state.get("complete_chatting_messages", [])

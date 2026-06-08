@@ -33,7 +33,8 @@ function InputSelectionPage() {
         }else{
             dispatch(chatActions.initChattingData());
             dispatch(chatActions.setInputMode(option));
-            navigate("/chatbot");
+            dispatch(chatActions.setSelectionReason(""));
+            navigate("/selection-reason");
         }
     } 
 
@@ -43,25 +44,29 @@ function InputSelectionPage() {
 
 
     return ( 
-        <div className="bg h-screen min-h-[640px]  w-full min-w-[900px]">
-            <div className="w-full h-full max-w-[1240px] min-w-[900px] mx-auto flex flex-col justify-around p-16 items-center relative">
-                <div className="text-h2 font-bold">Select a way to chat!</div>
+        <div className="bg h-screen min-h-[640px] w-full min-w-[900px]">
+            <div className="choice-page w-full h-full max-w-[1240px] min-w-[900px] mx-auto relative">
+                <div className="choice-header">
+                    <div className="choice-kicker">Response mode</div>
+                    <div className="choice-title">How would you like to respond?</div>
+                </div>
 
-                <div className="flex flex-row justify-between w-[840px]">
+                <div className="choice-grid">
                     <button className={`selction-card ${option==="keyboard" ? "selected-option": ""}`} onClick={() => setOption("keyboard")}>
-                        <img src={iconJob} alt="jon" className="w-32 h-32"></img>
-                        <div className="text-h4 font-semibold  mt-[-12px]">Keyboard</div>
-                       
+                        <img src={iconJob} alt="keyboard" className="choice-card-icon choice-card-icon-lg"></img>
+                        <div className="choice-card-title">Keyboard</div>
+                        <div className="selection-card-description">Type your answers</div>
                     </button>
 
                     <button className={`selction-card ${option==="voice" ? "selected-option": ""}`} onClick={() => setOption("voice")}>
-                        <img src={iconFamily} alt="family" className="w-32 h-32"></img>
-                        <div className="text-h4 font-semibold mt-[-12px]">Voice</div>
+                        <img src={iconFamily} alt="voice" className="choice-card-icon choice-card-icon-lg"></img>
+                        <div className="choice-card-title">Voice</div>
+                        <div className="selection-card-description">Speak first, then edit the text before sending</div>
                     </button>
                 </div>
 
-                <div className="flex justify-end">
-                    <button className="btn btn-black" onClick={nextPage}>Next</button>
+                <div className="choice-actions">
+                    <button className="btn btn-black choice-primary-btn" onClick={nextPage}>Next</button>
                 </div>
 
                 <button className="btn btn-black top-right-btn" onClick={goBack}>Back</button>

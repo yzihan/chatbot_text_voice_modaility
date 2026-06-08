@@ -14,7 +14,7 @@ export function cn(...inputs: ClassValue[]) {
 
 
 
-const VoiceRecorder = ({userInput, setUserInput, sendUserInput, onStop }) => {
+const VoiceRecorder = ({userInput, setUserInput, sendUserInput, onStop, disabled = false }) => {
   const [isListening, setIsListening] = useState(false);
   const hasSentRef = useRef(false);
   // redux
@@ -27,6 +27,10 @@ const VoiceRecorder = ({userInput, setUserInput, sendUserInput, onStop }) => {
   } = useReactMediaRecorder({ audio: true });
 
   const toggleListening = () => {
+    if (isTranscripting || disabled) {
+      return;
+    }
+
     if (isListening) {
       stopRecording();
     } else {
@@ -58,7 +62,9 @@ const VoiceRecorder = ({userInput, setUserInput, sendUserInput, onStop }) => {
 
     const renderInfo = () => {
       if (isTranscripting) {
-        return "Transcripting..."
+        return "Transcribing..."
+      }else if(disabled) {
+        return "Please wait for Nova to finish";
       }else if(isListening) {
         return "Tap again to stop recording";
       }else{
@@ -106,11 +112,13 @@ const VoiceRecorder = ({userInput, setUserInput, sendUserInput, onStop }) => {
       <div className="flex flex-col items-center space-y-4">
         <motion.button
           onClick={toggleListening}
+          disabled={isTranscripting || disabled}
           className={cn(
             "relative w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg",
             isListening
               ? "bg-gradient-to-br from-pink-200 to-rose-300 hover:shadow-xl"
               : "bg-gradient-to-br from-purple-200 to-pink-200 hover:shadow-xl hover:from-purple-300 hover:to-pink-300",
+            (isTranscripting || disabled) && "cursor-not-allowed opacity-60",
           )}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}

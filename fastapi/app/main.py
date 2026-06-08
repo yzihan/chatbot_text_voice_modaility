@@ -62,6 +62,20 @@ def write_user_data(participant_id: str, data: dict) -> None:
     user_file_path(participant_id).write_text(json.dumps(data, indent=2))
 
 
+def record_selection_reason(participant_id: str, group: str, selection_reason: str, interview_id: str, source: str) -> None:
+    data = read_user_data(participant_id)
+    selection_records = data.get("selection_records", [])
+    selection_records.append({
+        "interview_id": interview_id,
+        "group": group,
+        "selection_reason": selection_reason,
+        "source": source,
+        "created_time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    })
+    data["selection_records"] = selection_records
+    write_user_data(participant_id, data)
+
+
 def next_user_index() -> int:
     with user_count_lock:
         if USER_COUNT_FILE.exists():
@@ -152,6 +166,7 @@ async def new_conversation(request: Request):
         body = await request.json()
         participant_id = body.get("participantID")
         group = body.get("group")
+        selection_reason = body.get("selectionReason", "")
         source = body.get("source")
 
         if not participant_id:
@@ -159,6 +174,9 @@ async def new_conversation(request: Request):
         
         if not group:
             return error_response(400, "group is required")
+
+        if source == "selection" and not selection_reason.strip():
+            return error_response(400, "selectionReason is required")
         
 
         if not user_file_path(participant_id).exists():
@@ -177,6 +195,7 @@ async def new_conversation(request: Request):
             user_index=user_index,
             group=group,
             source=source,
+            selection_reason=selection_reason.strip(),
             question_indices=question_indices,
             user_info={"user_name": participant_id, "uid": participant_id},
             root_node=create_quetion_nodes(question_indices),
@@ -192,6 +211,13 @@ async def new_conversation(request: Request):
         data = engine.init_conversation()
 
         if data.get("status") == "success":
+            record_selection_reason(
+                participant_id=participant_id,
+                group=group,
+                selection_reason=selection_reason.strip(),
+                interview_id=interview_id,
+                source=source,
+            )
             engine.save_conversation_state()
             return {
                 "_id": interview_id,
@@ -341,6 +367,7 @@ async def load_history_chat(request: Request):
             "history_messages": data["messages_to_returned"],
             "is_ending": data["is_ending"],
             "group": engine.group,
+            "selectionReason": engine.selection_reason,
         }
 
     except Exception as e:

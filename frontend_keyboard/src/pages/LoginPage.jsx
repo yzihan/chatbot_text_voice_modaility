@@ -1,10 +1,8 @@
-import imgSection2 from "../assets/imgs/landing-2.png"
-import iconStar8 from "../assets/icons/star-8.svg";
-import iconStar4 from "../assets/icons/star-4.svg";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useDispatch } from 'react-redux';
 import { userActions } from "../reducers/userSlicer";
+import AnimatedCatHero from "../components/AnimatedCatHero/AnimatedCatHero";
 
 import { userRouter } from "../API/routers";
 import axios from "axios";
@@ -12,13 +10,17 @@ import { notify } from "../components/Toast/Toast";
 
 function LoginPage() {
     const navigate = useNavigate();
-    const [participantID, setParticipantID] = useState("");
+    const [email, setEmail] = useState("");
 
     const dispatch = useDispatch();
 
     const nextPage = () => {
+        const participantID = email.trim().toLowerCase();
+
         if(!participantID){
-            notify("UIN ID is required!", "warning")
+            notify("University email is required!", "warning")
+        }else if(!participantID.endsWith(".illinois.edu")){
+            notify("Please use your university email ending with .illinois.edu.", "warning")
         }else{
             axios.post(userRouter, {
                 task: "SIGN_IN",
@@ -44,15 +46,16 @@ function LoginPage() {
 
     const renderForms = () => {
         return (                
-            <div className="w-5/12 flex flex-col gap-8">
-                <div className="text-h1 font-bold">Let’s Discover Your Personality!</div>
-                <div className="text-h5 font-bold">To make sure you receive the extra credit, please enter your UIN.</div>
-                
-                <label className="input input-bordered flex items-center gap-8">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4 opacity-70"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM12.735 14c.618 0 1.093-.561.872-1.139a6.002 6.002 0 0 0-11.215 0c-.22.578.254 1.139.872 1.139h9.47Z" /></svg>
-                    <input type="text" className="grow" placeholder="UIN" value={participantID} onChange={(e) => setParticipantID(e.target.value)}/>
+            <div className="login-card">
+                <div className="choice-kicker">Psychat study</div>
+                <div className="login-title">Discover your personality through conversation</div>
+                <div className="login-copy">Enter your university email ending with .illinois.edu so we can connect your responses with extra credit.</div>
+
+                <label className="login-input">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 opacity-70"><path d="M3 4.75A2.75 2.75 0 0 1 5.75 2h8.5A2.75 2.75 0 0 1 17 4.75v10.5A2.75 2.75 0 0 1 14.25 18h-8.5A2.75 2.75 0 0 1 3 15.25V4.75Zm2.75-1.25c-.69 0-1.25.56-1.25 1.25v.47l5.5 3.3 5.5-3.3v-.47c0-.69-.56-1.25-1.25-1.25h-8.5Zm9.75 3.47-5.11 3.07a.75.75 0 0 1-.78 0L4.5 6.97v8.28c0 .69.56 1.25 1.25 1.25h8.5c.69 0 1.25-.56 1.25-1.25V6.97Z" /></svg>
+                    <input type="email" className="grow" placeholder="University Email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)}/>
                 </label>
-                <button className="btn btn-black mt-4" onClick={nextPage}>Get Started</button>
+                <button className="btn btn-black login-primary-btn" onClick={nextPage}>Begin</button>
 
                 
             </div>
@@ -62,16 +65,14 @@ function LoginPage() {
 
 
     return ( 
-        <div className="login-page bg h-screen min-h-[640px]  w-full min-w-[900px]">
-            <div className="w-full h-full max-w-[1240px] min-w-[900px] mx-auto flex flex-row gap-16 p-16 items-center">
+        <div className="login-page bg h-screen min-h-[640px] w-full min-w-[900px]">
+            <div className="login-shell w-full h-full max-w-[1240px] min-w-[900px] mx-auto">
 
                 {renderForms()}
 
 
-                <div className="w-[480px] relative aspect-square landing-border">
-                    <img src={iconStar8} className="w-[15%] absolute left-[8%] top-[8%]" alt="a star with eight lines"></img>
-                    <img src={iconStar4} className="w-[24%] absolute bottom-[3%] right-[3%]" alt="a star with four lines"></img>
-                    <div className="w-full h-full rounded-inf p-8 border-landing-section2"><img src={imgSection2} alt="kids are laughing"></img></div>
+                <div className="login-visual">
+                    <AnimatedCatHero />
                 </div>
 
             </div>

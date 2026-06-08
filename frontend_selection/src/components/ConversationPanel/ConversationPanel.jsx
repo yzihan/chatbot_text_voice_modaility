@@ -14,17 +14,16 @@ import { chatRouter, newConversationRouter, voiceChatRouter } from "../../API/ro
 import { useNavigate } from "react-router-dom";
 
 import VoiceRecorder from "../VoiceRecorder/VoiceRecorder";
-import { motion, AnimatePresence } from "framer-motion";
 
 
 
-function ConversationPanel({messages, streamMultipleLines}) {
+function ConversationPanel({messages, loadingText, streamMultipleLines}) {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     // user  redux states
     const { uid, participantID} = useSelector((state) => state.user);
     // redux
-    const {interviewID, inputMode, audioFilePath, interviewMessages, loadingText, isMessageLoading, isEnded, totalQuestion, currentProgress} = useSelector((state) => state.chat);
+    const {interviewID, inputMode, selectionReason, audioFilePath, interviewMessages, isMessageLoading, isEnded, totalQuestion, currentProgress} = useSelector((state) => state.chat);
     // useStates
     const [userInput, setUserInput] = useState("");
     const [submittedInput, setSubmittedInput] = useState("");
@@ -49,11 +48,13 @@ function ConversationPanel({messages, streamMultipleLines}) {
         })
         .then(response => {
             console.log(response.data);
-            if (response.data.transcript === ""){
-                setUserInput(" ")
-            }else{
-                setUserInput(response.data.transcript)
-            };
+            const transcript = response.data.transcript?.trim() || "";
+            if (transcript) {
+                setUserInput((currentInput) => {
+                    const current = currentInput.trim();
+                    return current ? `${current} ${transcript}` : transcript;
+                });
+            }
             dispatch(chatActions.setAudioFilePath(response.data.file_path))
         })
         .catch(err => {
@@ -83,6 +84,7 @@ function ConversationPanel({messages, streamMultipleLines}) {
             uid: uid,
             participantID: participantID,
             group: inputMode,
+            selectionReason: selectionReason,
             source: "selection"
         })
         .then((response) => {
@@ -183,17 +185,18 @@ function ConversationPanel({messages, streamMultipleLines}) {
 
 
     const scrollRef = useRef();
-    const inputRef = useRef();
     const conversationBodyRef = useRef();
 
     useEffect(() => {
-    const inputHeight = inputRef.current?.offsetHeight || 0;
-    if (conversationBodyRef.current) {
-        conversationBodyRef.current.style.paddingBottom = `${inputHeight}px`;
-    }
+        const frame = requestAnimationFrame(() => {
+            if (conversationBodyRef.current) {
+                const body = conversationBodyRef.current;
+                body.scrollTop = body.scrollHeight - body.clientHeight;
+            }
+        });
 
-    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages, loadingText, isEnded, isMessageLoading]);
+        return () => cancelAnimationFrame(frame);
+    }, [messages.length, loadingText, isEnded, isMessageLoading]);
 
 
 
@@ -216,34 +219,23 @@ function ConversationPanel({messages, streamMultipleLines}) {
                             </svg>
                         </button>
                     </form> */}
-                     <AnimatePresence>
-                        {(
-                        <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: "auto" }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className="bg-white/70 border border-purple-200 rounded-3xl p-4 shadow-sm backdrop-blur-sm"
-                        >
+                    <div className="bg-white/70 border border-purple-200 rounded-3xl p-4 shadow-sm backdrop-blur-sm">
                             <textarea 
                                 className="text-voice-text leading-relaxed min-h-[2rem] w-full p-2 rounded focus:outline-none  resize-none overflow-y-auto" 
                                 placeholder="Send your messages here"               
                                 value={userInput}
+                                disabled={isMessageLoading || submitTrigger}
                                 onChange={(e) => setUserInput(e.target.value)}>
                             </textarea>
 
-                            {(
-                            <motion.button
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
+                            <button
                                 onClick={sendUserInput}
+                                disabled={isMessageLoading || submitTrigger}
                                 className="mt-3 px-4 py-2 bg-gradient-to-r from-purple-300 to-pink-300 text-purple-800 rounded-2xl text-sm font-medium hover:shadow-md transition-all duration-200 hover:from-purple-400 hover:to-pink-400"
                             >
                                 Send Message
-                            </motion.button>
-                            )}
-                        </motion.div>
-                        )}
-                    </AnimatePresence>
+                            </button>
+                    </div>
                 </div>
             );
         }else if (inputMode === "voice"){
@@ -252,6 +244,7 @@ function ConversationPanel({messages, streamMultipleLines}) {
                         userInput={userInput} 
                         sendUserInput={sendUserInput} 
                         setUserInput={setUserInput}
+                        disabled={isMessageLoading}
                     ></VoiceRecorder>
         }
     }
@@ -264,11 +257,13 @@ function ConversationPanel({messages, streamMultipleLines}) {
 
     return ( 
         <div className="conversation-panel relative">
-            <div className="conversation-header text-h5 font-semibold">
-                Nova
+            <div className="conversation-header">
+                <div>
+                    <div className="conversation-kicker">Psychat</div>
+                    <div className="conversation-title">Nova</div>
+                </div>
+                <div className="conversation-status">{isEnded ? "Complete" : "In progress"}</div>
             </div>
-
-            <span className="conversation-divider"></span>
 
             <div className="conversation-body" ref={conversationBodyRef}>
                 {
@@ -278,18 +273,18 @@ function ConversationPanel({messages, streamMultipleLines}) {
                    
                 }   
                 {/* while loading */}
-                {isMessageLoading && <ConversationMessage message={{role:"assistant", "content":loadingText}}></ConversationMessage>}
+                {isMessageLoading && <ConversationMessage message={{role:"assistant", "content":loadingText, isStreaming: true}}></ConversationMessage>}
 
 
                 {/* next button */}
-                <div className="h-2"></div>
+                {isMessageLoading && <div className="conversation-stream-buffer" aria-hidden="true"></div>}
                 <div ref={scrollRef}></div>
             </div>
             
-            <div ref={inputRef}>{!isEnded &&  !isMessageLoading && renderInputPart()}</div>
+            <div>{!isEnded && renderInputPart()}</div>
             
 
-            <button className="btn btn-black top-right-btn-chat text-lg" onClick={goBack}>{isEnded ? "Exit" : "Stop"}</button>
+            <button className="btn btn-black top-right-btn-chat" onClick={goBack}>{isEnded ? "Exit" : "Stop"}</button>
             
 
             {/* <div className="badge badge-dash badge-primary top-left-progress-chat">{`Question: ${currentProgress}/${totalQuestion}` }</div> */}

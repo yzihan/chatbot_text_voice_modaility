@@ -5,6 +5,7 @@ import ChattingPage from './pages/ChattingPage';
 import HomePage from './pages/HomePage';
 import HistoryPage from './pages/HistoryPage';
 import InputSelectionPage from './pages/InputSelectionPage';
+import SelectionReasonPage from './pages/SelectionReasonPage';
 
 
 export default function Routers(){  
@@ -16,6 +17,7 @@ export default function Routers(){
                 <Route path="/chatbot" element={<ChattingPage/>} />
                 <Route path="/history" element={<HistoryPage/>} />
                 <Route path="/input-select" element={<InputSelectionPage/>} />
+                <Route path="/selection-reason" element={<SelectionReasonPage/>} />
                 
 
 

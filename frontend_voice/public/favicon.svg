@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Psychat">
+  <defs>
+    <linearGradient id="bg" x1="10" x2="54" y1="8" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#263143"/>
+      <stop offset="1" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="16" x2="48" y1="12" y2="52" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#b9d7ff"/>
+      <stop offset="0.52" stop-color="#f2c7ee"/>
+      <stop offset="1" stop-color="#ccefe8"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="18" fill="url(#bg)"/>
+  <path d="M18 28c0-7.2 5.8-13 13-13h6c7.2 0 13 5.8 13 13s-5.8 13-13 13h-7.1L20 49.5V40.2A12.95 12.95 0 0 1 18 28Z" fill="url(#accent)" opacity="0.96"/>
+  <path d="M28 23h9.4c4.1 0 7.2 2.8 7.2 6.8s-3.1 6.8-7.2 6.8H31.8V43H28V23Zm3.8 3.4v7.8h5.1c2.3 0 3.8-1.5 3.8-3.9 0-2.3-1.5-3.9-3.8-3.9h-5.1Z" fill="#111827"/>
+  <circle cx="23.5" cy="24" r="2" fill="#fff" opacity="0.88"/>
+</svg>

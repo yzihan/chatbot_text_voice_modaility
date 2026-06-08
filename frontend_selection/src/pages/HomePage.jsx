@@ -63,15 +63,18 @@ function HomePage() {
 
 
     return ( 
-        <div className="bg h-screen min-h-[640px]  w-full min-w-[900px]">
-            <div className="w-full h-full max-w-[1240px] min-w-[900px] mx-auto flex flex-col justify-around p-16 items-center relative">
-                <div className="text-h2 font-bold">How would you like to engage today?</div>
+        <div className="bg h-screen min-h-[640px] w-full min-w-[900px]">
+            <div className="choice-page w-full h-full max-w-[1240px] min-w-[900px] mx-auto relative">
+                <div className="choice-header">
+                    <div className="choice-kicker">Psychat</div>
+                    <div className="choice-title">What would you like to do today?</div>
+                </div>
 
-                <div className="flex flex-row justify-between w-[840px]">
+                <div className="choice-grid">
                     <button className={`selction-card ${option==="chatbot" ? "selected-option": ""}`} onClick={() => setOption("chatbot")}>
-                        <img src={iconChatBot} alt="chabot" className="w-16 h-16"></img>
-                        <div className="text-h4 font-semibold  mt-[-12px]">Chatbot</div>
-                        <div>Interactive chat for customized, free response</div>
+                        <img src={iconChatBot} alt="chatbot" className="choice-card-icon"></img>
+                        <div className="choice-card-title">Start Chat</div>
+                        <div className="selection-card-description">Begin a new personality chat</div>
                     </button>
 
                     {/* <button className={`selction-card ${option==="survey" ? "selected-option": ""}`} onClick={() => setOption("survey")}>
@@ -81,19 +84,19 @@ function HomePage() {
                     </button> */}
 
                     <button className={`selction-card ${option==="history" ? "selected-option": ""}`} onClick={() => setOption("history")}>
-                        <img src={iconHisory} alt="survey" className="w-16 h-16"></img>
-                        <div className="text-h4 font-semibold mt-[-12px]">History</div>
-                        <div>View or continue your history chats</div>
+                        <img src={iconHisory} alt="history" className="choice-card-icon"></img>
+                        <div className="choice-card-title">History</div>
+                        <div className="selection-card-description">View or continue past chats</div>
                     </button>
 
                 </div>
 
-                <div className="flex justify-end">
-                    <button className="btn btn-black text-lg" onClick={nextPage}>Next</button>
+                <div className="choice-actions">
+                    <button className="btn btn-black choice-primary-btn" onClick={nextPage}>Next</button>
                 </div>
 
-                <button className="btn btn-black top-right-btn text-lg" onClick={logout}>Logout</button>      
-  
+                <button className="btn btn-black top-right-btn" onClick={logout}>Logout</button>
+
             </div>
 
         </div>

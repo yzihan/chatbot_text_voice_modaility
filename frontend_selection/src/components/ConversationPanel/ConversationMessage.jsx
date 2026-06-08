@@ -31,7 +31,7 @@ function ConversationMessage({message}) {
 
 
     return ( 
-        <div className={`conversation-message ${message.role === "user" ? "message-right-message" : "message-left-message"}`}>
+        <div className={`conversation-message ${message.role === "user" ? "message-right-message" : "message-left-message"} ${message.isStreaming ? "message-streaming" : ""}`}>
             {message.role !== "user" &&  (
                 <div className="message-avatar">
                     <img src={iconPanda} alt="a panda"></img>

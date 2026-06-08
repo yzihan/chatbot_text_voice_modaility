@@ -8,12 +8,19 @@ load_dotenv()
 client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY"),
 )
+
+
+def _require_openai_api_key():
+    api_key = os.getenv("OPENAI_API_KEY", "").strip()
+    if not api_key or api_key == "your_openai_api_key":
+        raise RuntimeError("OpenAI API key is not configured. Please set OPENAI_API_KEY in fastapi/app/.env and restart the backend.")
     
  ##############################################################################################################################################
  ## Below are the functions to set openai model parameters and send to openai
  ##############################################################################################################################################
 
 def send_prompt(prompt, model = "gpt-3.5-turbo", is_json=False):
+    _require_openai_api_key()
     if is_json:
         response = client.chat.completions.create(
             model= model, 
@@ -31,6 +38,7 @@ def send_prompt(prompt, model = "gpt-3.5-turbo", is_json=False):
 
 
 def send_messages(messages, model = "gpt-3.5-turbo", is_json=False):
+    _require_openai_api_key()
     if is_json:
         response = client.chat.completions.create(
             model= model, 
@@ -53,7 +61,8 @@ def send_audio(file, model="whisper-1"):
     """
     file = open("xxx.mp3", "rb")
     """
-    response = client.audio.translations.create(
+    _require_openai_api_key()
+    response = client.audio.transcriptions.create(
         model= model, 
         file=file,
     )

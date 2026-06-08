@@ -6,6 +6,7 @@ export const chatSlice = createSlice({
     //input mode
     // inputMode: "keyboard",  //voice, keyboard
     inputMode: "keyboard",
+    selectionReason: "",
     audioFilePath: "", //current audio file path in the backend
 
     // data
@@ -31,6 +32,7 @@ export const chatSlice = createSlice({
     init: (state) => {
         // state.inputMode = "keyboard"; # voice/keyboard
         state.inputMode = "";
+        state.selectionReason = "";
         state.audioFilePath = "";
 
         state.interviewID = "";
@@ -56,6 +58,9 @@ export const chatSlice = createSlice({
     // set input mode
     setInputMode: (state, action) => {
         state.inputMode = action.payload;
+    },
+    setSelectionReason: (state, action) => {
+        state.selectionReason = action.payload;
     },
     setAudioFilePath: (state, action) => {
         state.audioFilePath = action.payload;
