@@ -8,6 +8,7 @@ import pickle
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Optional
 
 from sqlalchemy import select
 
@@ -28,7 +29,7 @@ def read_legacy_user(path: Path) -> dict:
         return ast.literal_eval(raw)
 
 
-def as_utc(value: str | None, fallback: datetime) -> datetime:
+def as_utc(value: Optional[str], fallback: datetime) -> datetime:
     if not value:
         return fallback
     parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))

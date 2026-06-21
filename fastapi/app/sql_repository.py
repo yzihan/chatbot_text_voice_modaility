@@ -7,6 +7,7 @@ import json
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -15,7 +16,7 @@ from database_sql import session_scope
 from sql_models import AudioRecording, Conversation, Message, Participant, utc_now
 
 
-def parse_client_timestamp(value: str | None) -> datetime | None:
+def parse_client_timestamp(value: Optional[str]) -> Optional[datetime]:
     if not value:
         return None
     parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -45,7 +46,7 @@ def get_or_create_participant(participant_key: str) -> Participant:
     raise RuntimeError("Could not allocate a unique participant index")
 
 
-def get_participant(participant_key: str) -> Participant | None:
+def get_participant(participant_key: str) -> Optional[Participant]:
     with session_scope() as session:
         return session.scalar(
             select(Participant).where(Participant.participant_id == participant_key)
@@ -58,8 +59,8 @@ def create_conversation(
     modality_group: str,
     source_system: str,
     selection_reason: str,
-    modality_selected_client_at: str | None,
-    selection_reason_client_at: str | None,
+    modality_selected_client_at: Optional[str],
+    selection_reason_client_at: Optional[str],
     question_code: str,
     question_sequence: list[str],
     initial_messages: list[dict],
@@ -140,8 +141,8 @@ def record_audio_upload(
     conversation_id: str,
     participant_key: str,
     file_path: str,
-    original_filename: str | None,
-    mime_type: str | None,
+    original_filename: Optional[str],
+    mime_type: Optional[str],
     content: bytes,
     upload_started_at: datetime,
     uploaded_at: datetime,

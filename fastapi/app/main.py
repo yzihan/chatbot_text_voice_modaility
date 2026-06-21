@@ -8,6 +8,7 @@ from pathlib import Path
 import threading
 import time
 import uuid
+from typing import Optional
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, Header, Request, UploadFile
@@ -459,7 +460,7 @@ async def load_history_chat(request: Request):
 
 
 @app.get("/chatbot/export")
-def export_data(x_export_token: str | None = Header(default=None)):
+def export_data(x_export_token: Optional[str] = Header(default=None)):
     expected_token = os.getenv("DATA_EXPORT_TOKEN")
     if not expected_token:
         return error_response(503, "Data export is not configured")

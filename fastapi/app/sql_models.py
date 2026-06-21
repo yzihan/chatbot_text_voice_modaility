@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
+from typing import Optional
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -40,17 +41,17 @@ class Conversation(Base):
         nullable=False,
     )
     modality_group: Mapped[str] = mapped_column(String(32), index=True, nullable=False)
-    modality_selected_client_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    modality_selected_client_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     source_system: Mapped[str] = mapped_column(String(32), index=True, nullable=False)
     selection_reason: Mapped[str] = mapped_column(Text, default="", nullable=False)
-    selection_reason_client_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    selection_reason_client_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[str] = mapped_column(String(24), default="in_progress", index=True, nullable=False)
     question_code: Mapped[str] = mapped_column(String(32), default="HEX", nullable=False)
     question_sequence: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
     questions_answered: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     participant: Mapped[Participant] = relationship(back_populates="conversations")
     messages: Mapped[list["Message"]] = relationship(
@@ -78,16 +79,16 @@ class Message(Base):
     sequence_number: Mapped[int] = mapped_column(Integer, nullable=False)
     role: Mapped[str] = mapped_column(String(16), index=True, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    raw_user_input: Mapped[str | None] = mapped_column(Text, nullable=True)
-    raw_transcript: Mapped[str | None] = mapped_column(Text, nullable=True)
-    input_method: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    client_message_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    client_created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    raw_user_input: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    raw_transcript: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    input_method: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    client_message_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    client_created_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     server_received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
     timestamp_source: Mapped[str] = mapped_column(String(24), default="server", nullable=False)
-    processing_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    processing_completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     processing_status: Mapped[str] = mapped_column(String(24), default="completed", nullable=False)
-    metadata_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    metadata_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     conversation: Mapped[Conversation] = relationship(back_populates="messages")
     audio_recordings: Mapped[list["AudioRecording"]] = relationship(
@@ -113,17 +114,17 @@ class AudioRecording(Base):
         nullable=False,
     )
     file_path: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
-    original_filename: Mapped[str | None] = mapped_column(Text, nullable=True)
-    mime_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    original_filename: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    mime_type: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     byte_size: Mapped[int] = mapped_column(Integer, nullable=False)
     sha256: Mapped[str] = mapped_column(String(64), nullable=False)
-    raw_transcript: Mapped[str | None] = mapped_column(Text, nullable=True)
+    raw_transcript: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     upload_started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
     timestamp_source: Mapped[str] = mapped_column(String(24), default="server", nullable=False)
-    transcribed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    transcribed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     transcription_succeeded: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    message_id: Mapped[str | None] = mapped_column(
+    message_id: Mapped[Optional[str]] = mapped_column(
         String(36),
         ForeignKey("messages.id", ondelete="SET NULL"),
         index=True,
@@ -131,7 +132,7 @@ class AudioRecording(Base):
     )
 
     conversation: Mapped[Conversation] = relationship(back_populates="audio_recordings")
-    message: Mapped[Message | None] = relationship(
+    message: Mapped[Optional["Message"]] = relationship(
         back_populates="audio_recordings",
         foreign_keys=[message_id],
         uselist=False,

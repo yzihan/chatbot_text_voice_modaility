@@ -274,7 +274,7 @@ class ConversationEngine:
         audio_file_paths: list[str],
         server_message_id: str,
         client_message_id: str,
-        client_created_at: str | None,
+        client_created_at: Optional[str],
         input_method: str,
         server_received_at: str,
     ) -> Dict:
