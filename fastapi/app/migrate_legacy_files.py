@@ -1,5 +1,7 @@
 """One-time migration from the legacy JSON/pickle files into the SQL database."""
 
+from __future__ import annotations
+
 import ast
 import json
 import pickle

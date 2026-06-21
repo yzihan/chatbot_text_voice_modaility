@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 from typing import List, Dict, Any, Callable, Optional, Union
 from .node import DialogNode, NodeType, SelectionOption, Message, NodeQuestion, Signal
@@ -9,6 +11,7 @@ from .logger import logger
 from .question_list.codes.question_list import create_quetion_nodes
 from datetime import datetime
 import random
+
 import uuid
 
 
