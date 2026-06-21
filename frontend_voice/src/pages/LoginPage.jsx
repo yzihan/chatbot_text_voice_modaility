@@ -19,8 +19,8 @@ function LoginPage() {
 
         if(!participantID){
             notify("University email is required!", "warning")
-        }else if(!participantID.endsWith(".illinois.edu")){
-            notify("Please use your university email ending with .illinois.edu.", "warning")
+        }else if(!isIllinoisEmail(participantID)){
+            notify("Please use your university email ending with illinois.edu.", "warning")
         }else{
             axios.post(userRouter, {
                 task: "SIGN_IN",
@@ -48,7 +48,7 @@ function LoginPage() {
         return (                
             <div className="login-card">
                 <div className="login-title">Begin your personality assessment</div>
-                <div className="login-copy">Use your university email ending with .illinois.edu so we can connect your responses with extra credit.</div>
+                <div className="login-copy">Use your university email ending with illinois.edu so we can connect your responses with extra credit.</div>
 
                 <label className="login-input">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 opacity-70"><path d="M3 4.75A2.75 2.75 0 0 1 5.75 2h8.5A2.75 2.75 0 0 1 17 4.75v10.5A2.75 2.75 0 0 1 14.25 18h-8.5A2.75 2.75 0 0 1 3 15.25V4.75Zm2.75-1.25c-.69 0-1.25.56-1.25 1.25v.47l5.5 3.3 5.5-3.3v-.47c0-.69-.56-1.25-1.25-1.25h-8.5Zm9.75 3.47-5.11 3.07a.75.75 0 0 1-.78 0L4.5 6.97v8.28c0 .69.56 1.25 1.25 1.25h8.5c.69 0 1.25-.56 1.25-1.25V6.97Z" /></svg>
@@ -78,6 +78,11 @@ function LoginPage() {
 
         </div>
      );
+}
+
+function isIllinoisEmail(value) {
+    const domain = value.split("@").pop();
+    return domain === "illinois.edu" || domain.endsWith(".illinois.edu");
 }
 
 export default LoginPage;
