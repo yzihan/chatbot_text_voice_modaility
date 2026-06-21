@@ -3,8 +3,11 @@ from conversation_engine.node import DialogNode, NodeType, Signal, summary_gener
 from conversation_engine.question_list_utils import detect, say_thank_you_and_go_next, generate_follow_up_question_1_UNINFORMATIVE, generate_follow_up_question_2_UNINFORMATIVE, generate_follow_up_question_1_NEEDS_CLARIFICATION, generate_follow_up_question_2_NEEDS_CLARIFICATION, generate_follow_up_question_1_NONSENSE, generate_follow_up_question_2_NONSENSE
 from .question_nodes import *
 from . import welcome_nodes as WELCOME_NODES
-from .question_list import node_mappings
+from .selected_questions import apply_selected_question_wording
 import copy
+
+
+apply_selected_question_wording(node_mappings)
 
 
 def node_i_j(i: int, j: int, question_indices: List[str], node_mappings: Dict) -> DialogNode:
@@ -68,8 +71,7 @@ def create_quetion_nodes(question_indices: List[str]):
         node_i_3.info["progress"] = i     
         node_i_4.info["progress"] = i  
 
-        node_i_0.add_next_node("default", node_i_1)
-        node_i_1.add_next_node("default", node_i_2)
+        connect_question_prompt(node_i_0, node_i_1, node_i_2)
 
         node_i_2.add_next_node("NEEDS_CLARIFICATION", node_i_3)
         node_i_2.add_next_node("NONSENSE", node_i_3)
@@ -95,8 +97,7 @@ def create_quetion_nodes(question_indices: List[str]):
     node_last_3 = node_i_j(len(question_indices), 3, question_indices, node_mappings_copy)
     node_last_4 = node_i_j(len(question_indices), 4, question_indices, node_mappings_copy)
 
-    node_last_0.add_next_node("default", node_last_1)
-    node_last_1.add_next_node("default", node_last_2)
+    connect_question_prompt(node_last_0, node_last_1, node_last_2)
 
     node_last_2.add_next_node("NEEDS_CLARIFICATION", node_last_3)
     node_last_2.add_next_node("NONSENSE", node_last_3)
@@ -121,3 +122,9 @@ def create_quetion_nodes(question_indices: List[str]):
     return node0_0
 
 
+def connect_question_prompt(node_0: DialogNode, node_1: DialogNode, node_2: DialogNode) -> None:
+    if node_1.text.strip():
+        node_0.add_next_node("default", node_1)
+        node_1.add_next_node("default", node_2)
+    else:
+        node_0.add_next_node("default", node_2)

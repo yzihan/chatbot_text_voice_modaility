@@ -37,7 +37,8 @@ function SelectionReasonPage() {
             return;
         }
 
-        dispatch(chatActions.setSelectionReason(trimmedReason));
+        dispatch(chatActions.setSelectionReason(reason));
+        dispatch(chatActions.setSelectionReasonClientAt(new Date().toISOString()));
         navigate("/chatbot");
     };
 

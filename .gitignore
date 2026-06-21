@@ -18,6 +18,7 @@ fastapi/app/database/
 fastapi/app/loggings/
 fastapi/app/voice-model/
 fastapi/app/user_count.txt
+test_artifacts/
 
 # Node
 node_modules/

@@ -15,6 +15,12 @@ import { useNavigate } from "react-router-dom";
 
 import VoiceRecorder from "../VoiceRecorder/VoiceRecorder";
 
+const createClientMessageId = () => {
+    if (window.crypto?.randomUUID) {
+        return window.crypto.randomUUID();
+    }
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+};
 
 
 function ConversationPanel({messages, loadingText, streamMultipleLines}) {
@@ -23,10 +29,11 @@ function ConversationPanel({messages, loadingText, streamMultipleLines}) {
     // user  redux states
     const { uid, participantID} = useSelector((state) => state.user);
     // redux
-    const {interviewID, inputMode, selectionReason, audioFilePath, interviewMessages, isMessageLoading, isEnded, totalQuestion, currentProgress} = useSelector((state) => state.chat);
+    const {interviewID, inputMode, modalitySelectedClientAt, selectionReason, selectionReasonClientAt, audioFilePath, audioRecordings, interviewMessages, isMessageLoading, isEnded, totalQuestion, currentProgress} = useSelector((state) => state.chat);
     // useStates
     const [userInput, setUserInput] = useState("");
     const [submittedInput, setSubmittedInput] = useState("");
+    const [submittedMessageMeta, setSubmittedMessageMeta] = useState(null);
     // useRef
     const effectRan = useRef(false);  // make usre init only once
     const [submitTrigger, setSubmitTrigger] = useState(false); // trigger for submit user resp to backend
@@ -55,7 +62,10 @@ function ConversationPanel({messages, loadingText, streamMultipleLines}) {
                     return current ? `${current} ${transcript}` : transcript;
                 });
             }
-            dispatch(chatActions.setAudioFilePath(response.data.file_path))
+            dispatch(chatActions.addAudioRecording({
+                id: response.data.audio_recording_id,
+                file_path: response.data.file_path,
+            }))
         })
         .catch(err => {
             console.log(err);
@@ -85,6 +95,8 @@ function ConversationPanel({messages, loadingText, streamMultipleLines}) {
             participantID: participantID,
             group: inputMode,
             selectionReason: selectionReason,
+            modalitySelectedClientAt: modalitySelectedClientAt,
+            selectionReasonClientAt: selectionReasonClientAt,
             source: "selection"
         })
         .then((response) => {
@@ -114,12 +126,20 @@ function ConversationPanel({messages, loadingText, streamMultipleLines}) {
             return;
         }
 
+        const messageMeta = {
+            client_message_id: createClientMessageId(),
+            client_created_at: new Date().toISOString(),
+            input_method: inputMode,
+        };
+
         dispatch(chatActions.addInterviewMessage({
             role: "user", 
-            content: userInput
+            content: userInput,
+            ...messageMeta,
         }));
 
         setSubmittedInput(userInput);
+        setSubmittedMessageMeta(messageMeta);
         setUserInput('');
         setSubmitTrigger(true); // Trigger useEffect to run after state update
     };
@@ -134,7 +154,10 @@ function ConversationPanel({messages, loadingText, streamMultipleLines}) {
                         interviewID: interviewID,
                         participantID: participantID,
                         user_resp: submittedInput,
-                        audioFilepPath: audioFilePath
+                        audioFilepPath: audioFilePath,
+                        audio_recording_ids: audioRecordings.map((recording) => recording.id),
+                        audio_file_paths: audioRecordings.map((recording) => recording.file_path),
+                        ...submittedMessageMeta,
                     });
     
                     console.log("==================================================================");
@@ -168,13 +191,13 @@ function ConversationPanel({messages, loadingText, streamMultipleLines}) {
                     notify(errorMsg, 'error');
                 } finally {
                     setSubmitTrigger(false);  // Reset the trigger
-                    dispatch(chatActions.setAudioFilePath(""));
+                    dispatch(chatActions.clearAudioRecordings());
                 }
             };
     
             handleSubmission();  // Call the async function
         }
-    }, [audioFilePath, dispatch, interviewID, participantID, streamMultipleLines, submitTrigger, submittedInput]);
+    }, [audioFilePath, audioRecordings, dispatch, interviewID, participantID, streamMultipleLines, submitTrigger, submittedInput, submittedMessageMeta]);
     
 
     const goBack = () => {

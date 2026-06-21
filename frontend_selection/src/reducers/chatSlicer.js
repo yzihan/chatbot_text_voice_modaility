@@ -6,8 +6,11 @@ export const chatSlice = createSlice({
     //input mode
     // inputMode: "keyboard",  //voice, keyboard
     inputMode: "keyboard",
+    modalitySelectedClientAt: null,
     selectionReason: "",
+    selectionReasonClientAt: null,
     audioFilePath: "", //current audio file path in the backend
+    audioRecordings: [],
 
     // data
     interviewID: "",
@@ -32,11 +35,16 @@ export const chatSlice = createSlice({
     init: (state) => {
         // state.inputMode = "keyboard"; # voice/keyboard
         state.inputMode = "";
+        state.modalitySelectedClientAt = null;
         state.selectionReason = "";
+        state.selectionReasonClientAt = null;
         state.audioFilePath = "";
+        state.audioRecordings = [];
 
         state.interviewID = "";
         state.interviewMessages = [];
+        state.audioFilePath = "";
+        state.audioRecordings = [];
 
         state.isMessageLoading = false;
         state.isStreaming = false;
@@ -59,11 +67,25 @@ export const chatSlice = createSlice({
     setInputMode: (state, action) => {
         state.inputMode = action.payload;
     },
+    setModalitySelectedClientAt: (state, action) => {
+        state.modalitySelectedClientAt = action.payload;
+    },
     setSelectionReason: (state, action) => {
         state.selectionReason = action.payload;
     },
+    setSelectionReasonClientAt: (state, action) => {
+        state.selectionReasonClientAt = action.payload;
+    },
     setAudioFilePath: (state, action) => {
         state.audioFilePath = action.payload;
+    },
+    addAudioRecording: (state, action) => {
+        state.audioRecordings.push(action.payload);
+        state.audioFilePath = action.payload.file_path;
+    },
+    clearAudioRecordings: (state) => {
+        state.audioRecordings = [];
+        state.audioFilePath = "";
     },
     // for interview data
     setInterviewID: (state, action) => {

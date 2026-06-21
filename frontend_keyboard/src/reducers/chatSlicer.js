@@ -7,6 +7,7 @@ export const chatSlice = createSlice({
     // inputMode: "keyboard",  //voice, keyboard
     inputMode: "keyboard",
     audioFilePath: "", //current audio file path in the backend
+    audioRecordings: [],
 
     // data
     interviewID: "",
@@ -32,9 +33,12 @@ export const chatSlice = createSlice({
         // state.inputMode = "keyboard"; # voice/keyboard
         state.inputMode = "";
         state.audioFilePath = "";
+        state.audioRecordings = [];
 
         state.interviewID = "";
         state.interviewMessages = [];
+        state.audioFilePath = "";
+        state.audioRecordings = [];
 
         state.isMessageLoading = false;
         state.isStreaming = false;
@@ -59,6 +63,14 @@ export const chatSlice = createSlice({
     },
     setAudioFilePath: (state, action) => {
         state.audioFilePath = action.payload;
+    },
+    addAudioRecording: (state, action) => {
+        state.audioRecordings.push(action.payload);
+        state.audioFilePath = action.payload.file_path;
+    },
+    clearAudioRecordings: (state) => {
+        state.audioRecordings = [];
+        state.audioFilePath = "";
     },
     // for interview data
     setInterviewID: (state, action) => {

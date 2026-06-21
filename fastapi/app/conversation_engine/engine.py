@@ -9,6 +9,23 @@ from .logger import logger
 from .question_list.codes.question_list import create_quetion_nodes
 from datetime import datetime
 import random
+import uuid
+
+
+def utc_timestamp() -> str:
+    return datetime.utcnow().isoformat(timespec="microseconds") + "Z"
+
+
+def assistant_message(content: str, info: Optional[Dict] = None) -> Dict:
+    message = {
+        "id": str(uuid.uuid4()),
+        "role": "assistant",
+        "content": content,
+        "created_at": utc_timestamp(),
+    }
+    if info is not None:
+        message["info"] = info
+    return message
 
 
 
@@ -57,6 +74,7 @@ class ConversationEngine:
 
         self._created_time = datetime.utcnow().isoformat()
         self._questions_finished = 0
+        self._user_responses_received = 0
         
 
     def save_conversation_state(self):
@@ -71,7 +89,7 @@ class ConversationEngine:
                 "selection_reason": self.selection_reason,
                 "source": self.source,
                 "question_indices": self.question_indices,
-                "questions_answered": self._questions_finished,
+                "questions_answered": self._user_responses_received,
                 "created_time": self._created_time,
                 "updated_time": datetime.utcnow().isoformat(),
             }
@@ -83,6 +101,7 @@ class ConversationEngine:
                 "selection_reason": self.selection_reason,
                 "source": self.source,
                 "question_indices": self.question_indices,
+                "user_responses_received": self._user_responses_received,
                 "root_node": self.root_node.id,
                 'current_node': self.current_node.id,
                 # 'node_history': self.node_history,
@@ -171,6 +190,14 @@ class ConversationEngine:
             engine.complete_chatting_messages = state.get("complete_chatting_messages", [])
             engine._created_time = metadata.get("created_time", datetime.utcnow().isoformat())
             engine._questions_finished = metadata.get("questions_answered", 1)
+            engine._user_responses_received = state.get(
+                "user_responses_received",
+                sum(
+                    1
+                    for message in engine.complete_chatting_messages
+                    if message.get("role") == "user"
+                ),
+            )
             
             return engine
 
@@ -192,13 +219,12 @@ class ConversationEngine:
             messages_to_returned = []
 
             # first message
-            msg = {
-                "role": "assistant",
-                "content": node_question_wrapper(
+            msg = assistant_message(
+                node_question_wrapper(
                     self.current_node.text,
                     self.user_info["user_name"],
-                )   
-            }
+                )
+            )
             messages_to_returned.append(msg)
             self.current_node.chatting_messsages.append(msg)
             self.complete_chatting_messages.append(msg)
@@ -237,7 +263,18 @@ class ConversationEngine:
             }
     
 
-    async def process_user_response(self, user_input: str, audioFilepPath: str) -> Dict:
+    async def process_user_response(
+        self,
+        user_input: str,
+        audioFilepPath: str,
+        audio_recording_ids: list[str],
+        audio_file_paths: list[str],
+        server_message_id: str,
+        client_message_id: str,
+        client_created_at: str | None,
+        input_method: str,
+        server_received_at: str,
+    ) -> Dict:
         """
         Main function for all question except first one.
             1. add user/resp and node.text to chatting_messages and complete chatting_messages
@@ -245,16 +282,24 @@ class ConversationEngine:
         """
 
         # Log conversation context
-        logger.info(f"=========   Session {self.session_id}: Processing input '{user_input}' =========")
+        logger.info(f"Session {self.session_id}: Processing user input")
             
                   
         try:
             messages_to_returned = []
             # user  message
             msg = {
+                "id": server_message_id,
                 "role": "user",
                 "content": user_input,
-                "audioFilepPath": audioFilepPath,
+                "raw_user_input": user_input,
+                "audio_file_path": audioFilepPath,
+                "audio_file_paths": audio_file_paths,
+                "audio_recording_ids": audio_recording_ids,
+                "client_message_id": client_message_id,
+                "client_created_at": client_created_at,
+                "input_method": input_method,
+                "created_at": server_received_at,
             }
             self.current_node.chatting_messsages.append(msg)
             self.complete_chatting_messages.append(msg)
@@ -283,11 +328,12 @@ class ConversationEngine:
             if infinite_loop_prevention_cnt >= 10:
                 raise Exception(F"Infinite loop created!")
 
-
+            self._user_responses_received += 1
             
             return {
                 "status": "success",
                 "messages_to_returned": messages_to_returned,
+                "user_message": msg,
                 "is_ending": self.current_node.node_type == NodeType.END_NODE
             }
         
@@ -340,7 +386,7 @@ class ConversationEngine:
         if condition == "NA":
             if self.clarification_count < self.current_node.max_clarification_attempts:
                 clarification_prompt = self._ask_for_question_details(self.complete_chatting_messages)
-                msg = {"role": "assistant", "content": clarification_prompt, "info": self.current_node.info}
+                msg = assistant_message(clarification_prompt, self.current_node.info)
                 messages_to_returned.append(msg)
                 self.current_node.chatting_messsages.append(msg)
                 self.complete_chatting_messages.append(msg)
@@ -376,7 +422,7 @@ class ConversationEngine:
 
         elif isinstance(summary_generator, str):
             logger.info(f"--------   Session {self.session_id}: LLM Generating Summay --------")
-            msg = {"role": "assistant", "content": summary_generator, "info": self.current_node.info}
+            msg = assistant_message(summary_generator, self.current_node.info)
             messages_to_returned.append(msg)
             self.current_node.chatting_messsages.append(msg)
             self.complete_chatting_messages.append(msg)
@@ -385,7 +431,7 @@ class ConversationEngine:
         elif isinstance(summary_generator, Callable):
             logger.info(f"--------   Session {self.session_id}: Written Summay --------")
             summary = self.current_node.summary_generators[condition](self.complete_chatting_messages)
-            msg = {"role": "assistant", "content": summary, "info": self.current_node.info}
+            msg = assistant_message(summary, self.current_node.info)
             messages_to_returned.append(msg)
             self.current_node.chatting_messsages.append(msg)
             self.complete_chatting_messages.append(msg)
@@ -439,7 +485,7 @@ class ConversationEngine:
 
         elif isinstance(summary_generator, str):
             logger.info(f"--------   Session {self.session_id}: LLM Generating Summay --------")
-            msg = {"role": "assistant", "content": summary_generator, "info": self.current_node.info}
+            msg = assistant_message(summary_generator, self.current_node.info)
             messages_to_returned.append(msg)
             self.current_node.chatting_messsages.append(msg)
             self.complete_chatting_messages.append(msg)
@@ -448,7 +494,7 @@ class ConversationEngine:
         elif isinstance(summary_generator, Callable):
             logger.info(f"--------   Session {self.session_id}: Written Summay --------")
             summary = self.current_node.summary_generators[condition](self.complete_chatting_messages)
-            msg = {"role": "assistant", "content": summary, "info": self.current_node.info}
+            msg = assistant_message(summary, self.current_node.info)
             messages_to_returned.append(msg)
             self.current_node.chatting_messsages.append(msg)
             self.complete_chatting_messages.append(msg)
@@ -469,14 +515,13 @@ class ConversationEngine:
         
         logger.info(f"Current node: {self.current_node.id}. Current condition: {condition}.  Next nodes options: {self.current_node.next_nodes}.  Moving to next node: {self.current_node.next_nodes[condition].id}".center(100, "="))
         self.current_node = self.current_node.next_nodes[condition]
-        msg = {
-            "role": "assistant",
-            "content": node_question_wrapper(
+        msg = assistant_message(
+            node_question_wrapper(
                 self.current_node.text,
                 self.user_info["user_name"],
             ),
-            "info": self.current_node.info   
-        }
+            self.current_node.info,
+        )
         messages_to_returned.append(msg)
         self.current_node.chatting_messsages.append(msg)
         self.complete_chatting_messages.append(msg)

@@ -33,7 +33,9 @@ function InputSelectionPage() {
         }else{
             dispatch(chatActions.initChattingData());
             dispatch(chatActions.setInputMode(option));
+            dispatch(chatActions.setModalitySelectedClientAt(new Date().toISOString()));
             dispatch(chatActions.setSelectionReason(""));
+            dispatch(chatActions.setSelectionReasonClientAt(null));
             navigate("/selection-reason");
         }
     } 

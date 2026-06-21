@@ -38,9 +38,10 @@
 
 import logging
 import os
+from pathlib import Path
 
-log_dir = "./loggings"
-os.makedirs(log_dir, exist_ok=True)  # Ensure the logging directory exists
+log_dir = Path(__file__).resolve().parents[1] / "loggings"
+os.makedirs(log_dir, exist_ok=True)
 
 class MaxLevelFilter(logging.Filter):
     """Filters (lets through) all messages with level <= max_level."""

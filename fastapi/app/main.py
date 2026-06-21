@@ -1,38 +1,49 @@
-import ast
-import json
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+import io
 import os
 from pathlib import Path
-import pickle
 import threading
-from threading import Lock
 import time
 import uuid
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, Request, UploadFile
+from fastapi import FastAPI, File, Form, Header, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from conversation_engine.engine import ConversationEngine
 from conversation_engine.logger import logger
 from conversation_engine.openai_api import send_audio
 from conversation_engine.question_list.codes.question_list import create_quetion_nodes
 from conversation_engine.question_list.codes.question_sequence import get_question_indices
+from database_sql import init_database
+from sql_models import utc_now
+from sql_repository import (
+    client_message_exists,
+    complete_audio_transcription,
+    conversation_belongs_to_participant,
+    create_conversation,
+    export_database_zip,
+    get_or_create_participant,
+    get_participant,
+    list_conversation_metadata,
+    parse_client_timestamp,
+    record_audio_upload,
+    record_conversation_turn,
+    record_failed_user_input,
+    record_pending_user_input,
+)
 
-
-user_count_lock = Lock()  # 用于线程安全的计数器更新
-
-load_dotenv()
+APP_DIR = Path(__file__).resolve().parent
+load_dotenv(APP_DIR / ".env")
 
 
 
 CACHE_TIME = 60 * 60  # 1 hour
-DATABASE_DIR = Path("./database")
-USER_DIR = DATABASE_DIR / "user"
+DATABASE_DIR = APP_DIR / "database"
 CHAT_DIR = DATABASE_DIR / "chats"
-USER_COUNT_FILE = Path("user_count.txt")
 
-USER_DIR.mkdir(parents=True, exist_ok=True)
 CHAT_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -40,68 +51,8 @@ def error_response(status_code: int, message: str) -> JSONResponse:
     return JSONResponse(status_code=status_code, content={"error": message})
 
 
-def user_file_path(participant_id: str) -> Path:
-    return USER_DIR / f"{participant_id}.txt"
-
-
 def chat_save_path(participant_id: str, interview_id: str) -> Path:
     return CHAT_DIR / participant_id / interview_id
-
-
-def read_user_data(participant_id: str) -> dict:
-    """Read existing user files saved as JSON or legacy Python dict strings."""
-    raw_data = user_file_path(participant_id).read_text()
-
-    try:
-        return json.loads(raw_data)
-    except json.JSONDecodeError:
-        return ast.literal_eval(raw_data)
-
-
-def write_user_data(participant_id: str, data: dict) -> None:
-    user_file_path(participant_id).write_text(json.dumps(data, indent=2))
-
-
-def record_selection_reason(participant_id: str, group: str, selection_reason: str, interview_id: str, source: str) -> None:
-    data = read_user_data(participant_id)
-    selection_records = data.get("selection_records", [])
-    selection_records.append({
-        "interview_id": interview_id,
-        "group": group,
-        "selection_reason": selection_reason,
-        "source": source,
-        "created_time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-    })
-    data["selection_records"] = selection_records
-    write_user_data(participant_id, data)
-
-
-def next_user_index() -> int:
-    with user_count_lock:
-        if USER_COUNT_FILE.exists():
-            user_index = int(USER_COUNT_FILE.read_text().strip() or "0") + 1
-        else:
-            user_index = 1
-
-        USER_COUNT_FILE.write_text(str(user_index))
-        return user_index
-
-
-def get_all_metadata_by_pid(participant_id: str) -> list:
-    base_path = CHAT_DIR / participant_id
-    all_metadata = []
-
-    if not base_path.exists():
-        return []
-
-    for session_path in base_path.iterdir():
-        metadata_path = session_path / "metadata.pkl"
-
-        if session_path.is_dir() and metadata_path.exists():
-            with metadata_path.open("rb") as f:
-                all_metadata.append(pickle.load(f))
-
-    return all_metadata
 
 
 def get_cors_allowed_origins() -> list[str]:
@@ -109,9 +60,15 @@ def get_cors_allowed_origins() -> list[str]:
     return [origin.strip() for origin in origins.split(",") if origin.strip()]
 
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    init_database()
+    thread = threading.Thread(target=cleanup_engines, daemon=True)
+    thread.start()
+    yield
 
 
-app = FastAPI()
+app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_cors_allowed_origins(),
@@ -140,20 +97,8 @@ async def search_or_create(request: Request):
             logger.error("participantID is required")
             return error_response(400, "participantID is required")
 
-        if user_file_path(participant_id).exists():
-            data = read_user_data(participant_id)
-            return data["_id"]
-
-        user_index = next_user_index()
-        user_id = str(uuid.uuid4())
-        data = {
-            "_id": user_id,
-            "user_index": user_index,
-            "participantID": participant_id,
-        }
-        write_user_data(participant_id, data)
-
-        return user_id
+        participant = get_or_create_participant(participant_id)
+        return participant.id
 
     except Exception as e:
         logger.error(f"[/chatbot/user]: {str(e)}")
@@ -167,6 +112,8 @@ async def new_conversation(request: Request):
         participant_id = body.get("participantID")
         group = body.get("group")
         selection_reason = body.get("selectionReason", "")
+        modality_selected_client_at = body.get("modalitySelectedClientAt")
+        selection_reason_client_at = body.get("selectionReasonClientAt")
         source = body.get("source")
 
         if not participant_id:
@@ -175,15 +122,31 @@ async def new_conversation(request: Request):
         if not group:
             return error_response(400, "group is required")
 
+        if source not in {"selection", "voice", "keyboard"}:
+            return error_response(400, "source must be selection, voice, or keyboard")
+
         if source == "selection" and not selection_reason.strip():
             return error_response(400, "selectionReason is required")
+
+        if source == "selection" and (
+            not modality_selected_client_at or not selection_reason_client_at
+        ):
+            return error_response(
+                400,
+                "Selection mode and reason timestamps are required",
+            )
+
+        try:
+            parse_client_timestamp(modality_selected_client_at)
+            parse_client_timestamp(selection_reason_client_at)
+        except (TypeError, ValueError):
+            return error_response(400, "Selection timestamps must be valid ISO-8601 timestamps")
         
 
-        if not user_file_path(participant_id).exists():
+        participant = get_participant(participant_id)
+        if not participant:
             return error_response(400, "User data is lost. Please re-register.")
-
-        data = read_user_data(participant_id)
-        user_index = data["user_index"]
+        user_index = participant.user_index
 
 
         interview_id = str(uuid.uuid4())
@@ -195,7 +158,7 @@ async def new_conversation(request: Request):
             user_index=user_index,
             group=group,
             source=source,
-            selection_reason=selection_reason.strip(),
+            selection_reason=selection_reason,
             question_indices=question_indices,
             user_info={"user_name": participant_id, "uid": participant_id},
             root_node=create_quetion_nodes(question_indices),
@@ -211,12 +174,17 @@ async def new_conversation(request: Request):
         data = engine.init_conversation()
 
         if data.get("status") == "success":
-            record_selection_reason(
-                participant_id=participant_id,
-                group=group,
-                selection_reason=selection_reason.strip(),
-                interview_id=interview_id,
-                source=source,
+            create_conversation(
+                conversation_id=interview_id,
+                participant_key=participant_id,
+                modality_group=group,
+                source_system=source,
+                selection_reason=selection_reason,
+                modality_selected_client_at=modality_selected_client_at,
+                selection_reason_client_at=selection_reason_client_at,
+                question_code=engine.question_code,
+                question_sequence=question_indices,
+                initial_messages=data["messages_to_returned"],
             )
             engine.save_conversation_state()
             return {
@@ -240,7 +208,14 @@ async def voice_recognition(
     interviewID: str = Form(...),
     audio: UploadFile = File(...)
 ):
+    upload_started_at = utc_now()
+    content = b""
+    webm_path = None
+    recording = None
     try:
+        if not conversation_belongs_to_participant(interviewID, participantID):
+            return error_response(404, "Conversation not found for participant")
+
         unique_id = str(uuid.uuid4())
         save_dir = chat_save_path(participantID, interviewID)
         save_dir.mkdir(parents=True, exist_ok=True)
@@ -251,57 +226,164 @@ async def voice_recognition(
             content = await audio.read()
             buffer.write(content)
 
+        recording = record_audio_upload(
+            conversation_id=interviewID,
+            participant_key=participantID,
+            file_path=str(webm_path),
+            original_filename=audio.filename,
+            mime_type=audio.content_type,
+            content=content,
+            upload_started_at=upload_started_at,
+            uploaded_at=utc_now(),
+        )
+
         with webm_path.open("rb") as f:
             transcript = send_audio(f)
+
+        recording = complete_audio_transcription(recording.id, transcript)
 
         return JSONResponse(content={
             "transcript": transcript,
             "message": "Audio saved and transcribed successfully!",
             "file_path": str(webm_path),
+            "audio_recording_id": recording.id,
+            "transcribed_at": recording.transcribed_at.isoformat(),
         })
 
     except Exception as e:
+        if recording is None and webm_path is not None and content:
+            try:
+                record_audio_upload(
+                    conversation_id=interviewID,
+                    participant_key=participantID,
+                    file_path=str(webm_path),
+                    original_filename=audio.filename,
+                    mime_type=audio.content_type,
+                    content=content,
+                    upload_started_at=upload_started_at,
+                    uploaded_at=utc_now(),
+                )
+            except Exception as record_error:
+                logger.error(f"Failed to record unsuccessful audio upload: {record_error}")
         logger.error(f"[/chatbot/voice-chat]: {str(e)}")
         return error_response(500, f"Error for voice recognition: {str(e)}")
 
 
 @app.post("/chatbot/chat")
 async def continue_conversation(request: Request):
+    pending_message = None
     try:
         body = await request.json()
+        server_received_at = datetime.now(timezone.utc).isoformat()
 
         interviewID = body.get("interviewID")
         user_resp = body.get("user_resp")
         audioFilepPath = body.get("audioFilepPath")
+        audio_recording_ids = body.get("audio_recording_ids") or []
+        audio_file_paths = body.get("audio_file_paths") or ([audioFilepPath] if audioFilepPath else [])
+        client_message_id = body.get("client_message_id") or str(uuid.uuid4())
+        client_created_at = body.get("client_created_at")
+        input_method = body.get("input_method")
+        participant_id = body.get("participantID")
         
 
-        if not interviewID or not user_resp:
-            return error_response(400, "Missing 'interviewID' or 'user_resp'")
+        if not interviewID or not user_resp or not participant_id:
+            return error_response(400, "Missing 'interviewID', 'participantID', or 'user_resp'")
+
+        try:
+            parse_client_timestamp(client_created_at)
+        except (TypeError, ValueError):
+            return error_response(400, "client_created_at must be a valid ISO-8601 timestamp")
+
+        if not conversation_belongs_to_participant(interviewID, participant_id):
+            return error_response(404, "Conversation not found for participant")
+
+        if client_message_exists(interviewID, client_message_id):
+            return error_response(409, "This message was already recorded")
 
         if interviewID not in engines:
             logger.debug(f"Conversation Expired: {interviewID}")
             return error_response(404, "Your session expired! Please go back to home page and restart again!")
 
         engine = engines[interviewID]
+        input_method = input_method or engine.group
+        server_message_id = str(uuid.uuid4())
+        pending_message = {
+            "id": server_message_id,
+            "conversation_id": interviewID,
+            "role": "user",
+            "content": user_resp,
+            "raw_user_input": user_resp,
+            "audio_file_path": audioFilepPath,
+            "audio_file_paths": audio_file_paths,
+            "audio_recording_ids": audio_recording_ids,
+            "client_message_id": client_message_id,
+            "client_created_at": client_created_at,
+            "input_method": input_method,
+            "created_at": server_received_at,
+        }
+        record_pending_user_input(interviewID, pending_message)
         engines_last_updated_time[interviewID] = time.time()
 
         logger.debug(f"Chat Conversation: {interviewID}")
         logger.debug(f"Current Activate conversations: {engines_last_updated_time}")
 
         # Assuming this method is async
-        data = await engine.process_user_response(user_resp, audioFilepPath)
+        data = await engine.process_user_response(
+            user_resp,
+            audioFilepPath,
+            audio_recording_ids=audio_recording_ids,
+            audio_file_paths=audio_file_paths,
+            server_message_id=server_message_id,
+            client_message_id=client_message_id,
+            client_created_at=client_created_at,
+            input_method=input_method,
+            server_received_at=server_received_at,
+        )
 
         if data.get("status") == "success":
+            record_conversation_turn(
+                conversation_id=interviewID,
+                user_message=data["user_message"],
+                assistant_messages=data["messages_to_returned"],
+                questions_answered=engine._user_responses_received,
+                is_ending=data["is_ending"],
+            )
             engine.save_conversation_state()
             return {
                 "question_data": data["messages_to_returned"],
                 "is_ending": data["is_ending"]
             }
         else:
+            failed_message = next(
+                (
+                    message
+                    for message in reversed(engine.complete_chatting_messages)
+                    if message.get("client_message_id") == client_message_id
+                ),
+                {
+                    "role": "user",
+                    "content": user_resp,
+                    "raw_user_input": user_resp,
+                    "audio_file_path": audioFilepPath,
+                    "audio_file_paths": audio_file_paths,
+                    "audio_recording_ids": audio_recording_ids,
+                    "client_message_id": client_message_id,
+                    "client_created_at": client_created_at,
+                    "input_method": input_method,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                },
+            )
+            record_failed_user_input(interviewID, failed_message)
             logger.error(f"[/chatbot/chat]: {data.get('error', 'Unknown error')}")
             return error_response(500, f"Some error happened for chatting: {data.get('error', 'Unknown error')}")
 
     except Exception as e:
+        if pending_message and pending_message.get("client_message_id"):
+            try:
+                record_failed_user_input(pending_message["conversation_id"], pending_message)
+            except Exception as record_error:
+                logger.error(f"Failed to mark user input as failed: {record_error}")
         return error_response(500, f"Error for chatting: {str(e)}")
     
 @app.post("/chatbot/chat_history")
@@ -312,10 +394,7 @@ async def get_chat_history(request: Request):
         if not participant_id:
             return error_response(400, "Missing participantID in request body")
 
-        metadatas = get_all_metadata_by_pid(participant_id)
-
-        # sort by updated time
-        metadatas.sort(key=lambda item: item["updated_time"], reverse=True)
+        metadatas = list_conversation_metadata(participant_id)
 
         return JSONResponse(
             status_code=200,
@@ -342,6 +421,8 @@ async def load_history_chat(request: Request):
         if not interview_id:
             return error_response(400, "Missing interviewID in request body")
 
+        if not conversation_belongs_to_participant(interview_id, participant_id):
+            return error_response(404, "Conversation not found for participant")
 
         user_info = {"user_name": participant_id, "uid": participant_id}
         save_path = str(chat_save_path(participant_id, interview_id))
@@ -375,6 +456,23 @@ async def load_history_chat(request: Request):
         return error_response(500, f"Failed loading chat history: {str(e)}")
 
 
+@app.get("/chatbot/export")
+def export_data(x_export_token: str | None = Header(default=None)):
+    expected_token = os.getenv("DATA_EXPORT_TOKEN")
+    if not expected_token:
+        return error_response(503, "Data export is not configured")
+    if not x_export_token or x_export_token != expected_token:
+        return error_response(403, "Invalid export token")
+
+    archive = export_database_zip()
+    filename = f"chatbot-data-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.zip"
+    return StreamingResponse(
+        io.BytesIO(archive),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 
 
 def cleanup_engines():
@@ -393,12 +491,6 @@ def cleanup_engines():
             engines.pop(key, None)
             engines_last_updated_time.pop(key, None)  # Clean up timestamp as well
 
-
-
-@app.on_event("startup")
-def start_cleanup_thread():
-    thread = threading.Thread(target=cleanup_engines, daemon=True)
-    thread.start()
 
 
 if __name__ == "__main__":
