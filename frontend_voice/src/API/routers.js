@@ -1,4 +1,10 @@
-const host = process.env.REACT_APP_BACKEND_HOST;
+const configuredHost = process.env.REACT_APP_BACKEND_HOST;
+const isLocalHost =
+  configuredHost?.includes("localhost") || configuredHost?.includes("127.0.0.1");
+const host =
+  process.env.NODE_ENV === "production" && (!configuredHost || isLocalHost)
+    ? `${window.location.origin}/chatbot/api`
+    : configuredHost;
 
 
 // for user credentials
@@ -11,4 +17,3 @@ export const historyRouter = `${host}/chatbot/chat_history`;
 // export const openningQuestionsRouter = `${host}/chatbot/opening-questions`;
 // export const interviewQuestionsRouter = `${host}/chatbot/interview-questions`;
 export const interviewHistoryRouter = `${host}/chatbot/load_history_chat`;
-
