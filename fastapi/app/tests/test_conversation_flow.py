@@ -160,3 +160,8 @@ def test_full_selected_question_flow_preserves_order_and_follow_up_boundaries(tm
     assert [message["info"]["progress"] for message in scored_user_messages].count(11) == 2
     assert [message["info"]["progress"] for message in scored_user_messages].count(12) == 1
     assert [message["info"]["progress"] for message in scored_user_messages].count(13) == 1
+    assert [
+        message["info"]["question_index"]
+        for message in scored_user_messages
+        if message["info"]["progress"] == 11
+    ] == [selected[10], selected[10]]
