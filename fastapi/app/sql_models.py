@@ -137,3 +137,27 @@ class AudioRecording(Base):
         foreign_keys=[message_id],
         uselist=False,
     )
+
+
+class InteractionEvent(Base):
+    __tablename__ = "interaction_events"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_string)
+    conversation_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("conversations.id", ondelete="SET NULL"),
+        index=True,
+        nullable=True,
+    )
+    participant_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("participants.id", ondelete="SET NULL"),
+        index=True,
+        nullable=True,
+    )
+    event_type: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    page: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    target: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    client_created_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    server_received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    metadata_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

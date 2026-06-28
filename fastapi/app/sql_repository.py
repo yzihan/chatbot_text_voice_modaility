@@ -13,7 +13,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from database_sql import session_scope
-from sql_models import AudioRecording, Conversation, Message, Participant, utc_now
+from sql_models import AudioRecording, Conversation, InteractionEvent, Message, Participant, utc_now
 
 
 def parse_client_timestamp(value: Optional[str]) -> Optional[datetime]:
@@ -296,6 +296,35 @@ def record_failed_user_input(conversation_id: str, user_message: dict) -> None:
         _append_messages(session, conversation_id, [failed_message], last_sequence + 1)
 
 
+def record_interaction_event(
+    participant_key: Optional[str],
+    conversation_id: Optional[str],
+    event_type: str,
+    page: Optional[str],
+    target: Optional[str],
+    client_created_at: Optional[str],
+    metadata: Optional[dict],
+) -> None:
+    with session_scope() as session:
+        participant = None
+        if participant_key:
+            participant = session.scalar(
+                select(Participant).where(Participant.participant_id == participant_key)
+            )
+
+        event = InteractionEvent(
+            conversation_id=conversation_id or None,
+            participant_id=participant.id if participant else None,
+            event_type=event_type,
+            page=page,
+            target=target,
+            client_created_at=parse_client_timestamp(client_created_at),
+            server_received_at=utc_now(),
+            metadata_json=json.dumps(metadata or {}),
+        )
+        session.add(event)
+
+
 def _append_messages(session, conversation_id: str, messages: list[dict], start_sequence: int) -> None:
     for offset, message in enumerate(messages):
         metadata = message.get("info")
@@ -386,6 +415,12 @@ def export_database_zip() -> bytes:
                     select(AudioRecording).order_by(AudioRecording.uploaded_at)
                 ).all(),
             ),
+            "interaction_events.csv": (
+                InteractionEvent,
+                session.scalars(
+                    select(InteractionEvent).order_by(InteractionEvent.server_received_at)
+                ).all(),
+            ),
         }
 
         output = io.BytesIO()
@@ -398,7 +433,101 @@ def export_database_zip() -> bytes:
                 for row in rows:
                     writer.writerow([_csv_value(getattr(row, column)) for column in columns])
                 archive.writestr(filename, text_buffer.getvalue())
+            archive.writestr(
+                "participant_question_responses.csv",
+                _participant_question_response_csv(session),
+            )
         return output.getvalue()
+
+
+def _participant_question_response_csv(session) -> str:
+    conversations = session.scalars(
+        select(Conversation).order_by(Conversation.created_at)
+    ).all()
+    messages = session.scalars(
+        select(Message).order_by(Message.conversation_id, Message.sequence_number)
+    ).all()
+    participants = {
+        participant.id: participant
+        for participant in session.scalars(select(Participant)).all()
+    }
+    user_messages_by_conversation_question: dict[tuple[str, str], list[Message]] = {}
+
+    for message in messages:
+        if message.role != "user" or not message.metadata_json:
+            continue
+        try:
+            metadata = json.loads(message.metadata_json)
+        except json.JSONDecodeError:
+            continue
+        question_index = metadata.get("question_index")
+        if not question_index:
+            continue
+        key = (message.conversation_id, question_index)
+        user_messages_by_conversation_question.setdefault(key, []).append(message)
+
+    columns = [
+        "conversation_id",
+        "participant_id",
+        "modality_group",
+        "source_system",
+        "conversation_status",
+        "assigned_order",
+        "question_index",
+        "response_count",
+        "missing_response",
+        "primary_response",
+        "followup_response_1",
+        "followup_response_2",
+        "processing_statuses",
+        "primary_response_time_ms",
+        "primary_client_created_at",
+        "primary_server_received_at",
+        "primary_response_to_node_id",
+    ]
+    text_buffer = io.StringIO()
+    writer = csv.writer(text_buffer)
+    writer.writerow(columns)
+
+    for conversation in conversations:
+        participant = participants.get(conversation.participant_id)
+        try:
+            question_sequence = json.loads(conversation.question_sequence)
+        except json.JSONDecodeError:
+            question_sequence = []
+        for assigned_order, question_index in enumerate(question_sequence, start=1):
+            question_messages = user_messages_by_conversation_question.get(
+                (conversation.id, question_index),
+                [],
+            )
+            primary = question_messages[0] if question_messages else None
+            primary_metadata = {}
+            if primary and primary.metadata_json:
+                try:
+                    primary_metadata = json.loads(primary.metadata_json)
+                except json.JSONDecodeError:
+                    primary_metadata = {}
+            writer.writerow([
+                conversation.id,
+                participant.participant_id if participant else "",
+                conversation.modality_group,
+                conversation.source_system,
+                conversation.status,
+                assigned_order,
+                question_index,
+                len(question_messages),
+                "true" if not question_messages else "false",
+                question_messages[0].raw_user_input if len(question_messages) > 0 else "",
+                question_messages[1].raw_user_input if len(question_messages) > 1 else "",
+                question_messages[2].raw_user_input if len(question_messages) > 2 else "",
+                "|".join(message.processing_status for message in question_messages),
+                primary_metadata.get("response_time_ms", ""),
+                _csv_value(primary.client_created_at) if primary else "",
+                _csv_value(primary.server_received_at) if primary else "",
+                primary_metadata.get("response_to_node_id", ""),
+            ])
+
+    return text_buffer.getvalue()
 
 
 def _csv_value(value):

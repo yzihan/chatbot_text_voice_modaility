@@ -35,6 +35,7 @@ from sql_repository import (
     record_audio_upload,
     record_conversation_turn,
     record_failed_user_input,
+    record_interaction_event,
     record_pending_user_input,
 )
 
@@ -290,7 +291,7 @@ async def continue_conversation(request: Request):
         participant_id = body.get("participantID")
         
 
-        if not interviewID or not user_resp or not participant_id:
+        if not interviewID or user_resp is None or not str(user_resp).strip() or not participant_id:
             return error_response(400, "Missing 'interviewID', 'participantID', or 'user_resp'")
 
         try:
@@ -310,6 +311,12 @@ async def continue_conversation(request: Request):
 
         engine = engines[interviewID]
         input_method = input_method or engine.group
+        response_metadata = {
+            **getattr(engine.current_node, "info", {}),
+            "response_to_node_id": engine.current_node.id,
+            "response_started_client_at": body.get("response_started_client_at"),
+            "response_time_ms": body.get("response_time_ms"),
+        }
         server_message_id = str(uuid.uuid4())
         pending_message = {
             "id": server_message_id,
@@ -324,6 +331,7 @@ async def continue_conversation(request: Request):
             "client_created_at": client_created_at,
             "input_method": input_method,
             "created_at": server_received_at,
+            "info": response_metadata,
         }
         record_pending_user_input(interviewID, pending_message)
         engines_last_updated_time[interviewID] = time.time()
@@ -342,6 +350,7 @@ async def continue_conversation(request: Request):
             client_created_at=client_created_at,
             input_method=input_method,
             server_received_at=server_received_at,
+            response_metadata=response_metadata,
         )
 
         if data.get("status") == "success":
@@ -375,6 +384,7 @@ async def continue_conversation(request: Request):
                     "client_created_at": client_created_at,
                     "input_method": input_method,
                     "created_at": datetime.now(timezone.utc).isoformat(),
+                    "info": response_metadata,
                 },
             )
             record_failed_user_input(interviewID, failed_message)
@@ -457,6 +467,37 @@ async def load_history_chat(request: Request):
     except Exception as e:
         logger.error(f"[/chatbot/load_history_chat]: Failed loading chat history: {str(e)}")
         return error_response(500, f"Failed loading chat history: {str(e)}")
+
+
+@app.post("/chatbot/interaction_event")
+async def interaction_event(request: Request):
+    try:
+        body = await request.json()
+        event_type = body.get("event_type")
+        client_created_at = body.get("client_created_at")
+
+        if not event_type:
+            return error_response(400, "event_type is required")
+
+        try:
+            parse_client_timestamp(client_created_at)
+        except (TypeError, ValueError):
+            return error_response(400, "client_created_at must be a valid ISO-8601 timestamp")
+
+        record_interaction_event(
+            participant_key=body.get("participantID"),
+            conversation_id=body.get("interviewID"),
+            event_type=event_type,
+            page=body.get("page"),
+            target=body.get("target"),
+            client_created_at=client_created_at,
+            metadata=body.get("metadata"),
+        )
+        return {"status": "recorded"}
+
+    except Exception as e:
+        logger.error(f"[/chatbot/interaction_event]: {str(e)}")
+        return error_response(500, str(e))
 
 
 @app.get("/chatbot/export")

@@ -97,6 +97,9 @@ def create_quetion_nodes(question_indices: List[str]):
     node_last_3 = node_i_j(len(question_indices), 3, question_indices, node_mappings_copy)
     node_last_4 = node_i_j(len(question_indices), 4, question_indices, node_mappings_copy)
 
+    for node in (node_last_0, node_last_1, node_last_2, node_last_3, node_last_4):
+        node.info["progress"] = len(question_indices)
+
     connect_question_prompt(node_last_0, node_last_1, node_last_2)
 
     node_last_2.add_next_node("NEEDS_CLARIFICATION", node_last_3)

@@ -13,6 +13,7 @@ export const newConversationRouter = `${host}/chatbot/new_conversation`;
 export const chatRouter = `${host}/chatbot/chat`;
 export const voiceChatRouter = `${host}/chatbot/voice-chat`;
 export const historyRouter = `${host}/chatbot/chat_history`;
+export const interactionEventRouter = `${host}/chatbot/interaction_event`;
 // for interviews
 // export const openningQuestionsRouter = `${host}/chatbot/opening-questions`;
 // export const interviewQuestionsRouter = `${host}/chatbot/interview-questions`;
