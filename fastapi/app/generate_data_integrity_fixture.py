@@ -45,6 +45,7 @@ def main() -> None:
         client_created_at,
         input_method,
         server_received_at,
+        response_metadata=None,
     ):
         if user_input == "Input captured before a simulated processing failure.":
             return {
@@ -63,6 +64,7 @@ def main() -> None:
             "client_created_at": client_created_at,
             "input_method": input_method,
             "created_at": server_received_at,
+            "info": response_metadata or {},
         }
         response = assistant_message(f"Recorded: {user_input}")
         engine_self.complete_chatting_messages.extend([user_message, response])
@@ -245,8 +247,9 @@ def main() -> None:
     report = {
         "participants": 3,
         "conversations": 3,
-        "messages": 13,
-        "audio_recordings": 2,
+            "messages": 13,
+            "audio_recordings": 2,
+            "interaction_events": 0,
         "negative_checks": {
             "selection_without_timestamps_rejected": True,
             "duplicate_message_rejected": True,

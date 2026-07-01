@@ -23,7 +23,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from database_sql import Base, engine, init_database, session_scope  # noqa: E402
 from conversation_engine.engine import assistant_message  # noqa: E402
 import main as main_module  # noqa: E402
-from sql_models import AudioRecording, Conversation, Message, Participant  # noqa: E402
+from sql_models import AudioRecording, Conversation, InteractionEvent, Message, Participant  # noqa: E402
 from sql_repository import (  # noqa: E402
     create_conversation,
     complete_audio_transcription,
@@ -33,6 +33,7 @@ from sql_repository import (  # noqa: E402
     record_conversation_turn,
     record_pending_user_input,
     record_failed_user_input,
+    record_interaction_event,
 )
 
 
@@ -105,6 +106,13 @@ def test_complete_turn_audio_and_export_are_persisted():
             "client_created_at": "2026-06-21T12:01:02.000003Z",
             "input_method": "voice",
             "created_at": "2026-06-21T12:01:02.100004Z",
+            "info": {
+                "question_index": "F1Q3",
+                "progress": 1,
+                "response_to_node_id": "F1Q3_2",
+                "response_started_client_at": "2026-06-21T12:00:57.000000Z",
+                "response_time_ms": 5000,
+            },
         }
     record_pending_user_input(conversation_id, user_message)
     record_conversation_turn(
@@ -133,6 +141,8 @@ def test_complete_turn_audio_and_export_are_persisted():
         assert messages[1].client_created_at is not None
         assert messages[1].server_received_at is not None
         assert messages[1].timestamp_source == "server"
+        assert json.loads(messages[1].metadata_json)["question_index"] == "F1Q3"
+        assert json.loads(messages[1].metadata_json)["response_time_ms"] == 5000
         assert [item.id for item in messages[1].audio_recordings] == [
             recording.id,
             second_recording.id,
@@ -152,6 +162,8 @@ def test_complete_turn_audio_and_export_are_persisted():
         "conversations.csv",
         "messages.csv",
         "audio_recordings.csv",
+        "interaction_events.csv",
+        "participant_question_responses.csv",
     }
     exported_messages = list(
         csv.DictReader(io.StringIO(archive.read("messages.csv").decode()))
@@ -164,6 +176,56 @@ def test_complete_turn_audio_and_export_are_persisted():
         csv.DictReader(io.StringIO(archive.read("conversations.csv").decode()))
     )
     assert json.loads(exported_conversations[0]["question_sequence"]) == ["F1Q3", "F2Q2"]
+    assert json.loads(exported_messages[1]["metadata_json"])["response_to_node_id"] == "F1Q3_2"
+    participant_question_rows = list(
+        csv.DictReader(
+            io.StringIO(archive.read("participant_question_responses.csv").decode())
+        )
+    )
+    assert [row["question_index"] for row in participant_question_rows] == ["F1Q3", "F2Q2"]
+    assert participant_question_rows[0]["missing_response"] == "false"
+    assert participant_question_rows[0]["primary_response"] == "raw voice transcript with my edit"
+    assert participant_question_rows[0]["primary_response_time_ms"] == "5000"
+    assert participant_question_rows[1]["missing_response"] == "true"
+
+
+def test_interaction_events_are_exported():
+    participant = get_or_create_participant("events@illinois.edu")
+    conversation_id = "12121212-1212-1212-1212-121212121212"
+    create_conversation(
+        conversation_id=conversation_id,
+        participant_key=participant.participant_id,
+        modality_group="keyboard",
+        source_system="selection",
+        selection_reason="Keyboard feels precise.",
+        modality_selected_client_at="2026-06-21T11:59:00Z",
+        selection_reason_client_at="2026-06-21T11:59:30Z",
+        question_code="HEX",
+        question_sequence=["F1Q3"],
+        initial_messages=[],
+    )
+    record_interaction_event(
+        participant_key=participant.participant_id,
+        conversation_id=conversation_id,
+        event_type="click",
+        page="/chatbot",
+        target="send-message",
+        client_created_at="2026-06-21T12:00:00Z",
+        metadata={"currentProgress": 1},
+    )
+
+    with session_scope() as session:
+        event = session.scalar(select(InteractionEvent))
+        assert event.event_type == "click"
+        assert event.participant_id == participant.id
+        assert json.loads(event.metadata_json)["currentProgress"] == 1
+
+    archive = zipfile.ZipFile(io.BytesIO(export_database_zip()))
+    rows = list(
+        csv.DictReader(io.StringIO(archive.read("interaction_events.csv").decode()))
+    )
+    assert rows[0]["event_type"] == "click"
+    assert rows[0]["target"] == "send-message"
 
 
 def test_duplicate_client_message_id_is_rejected_without_duplicate_row():
@@ -276,6 +338,7 @@ def test_three_user_end_to_end_capture_and_protected_export(monkeypatch, tmp_pat
         client_created_at,
         input_method,
         server_received_at,
+        response_metadata=None,
     ):
         if user_input == "Input captured before a simulated processing failure.":
             return {
@@ -294,6 +357,7 @@ def test_three_user_end_to_end_capture_and_protected_export(monkeypatch, tmp_pat
             "client_created_at": client_created_at,
             "input_method": input_method,
             "created_at": server_received_at,
+            "info": response_metadata or {},
         }
         response = assistant_message(f"Recorded: {user_input}")
         engine_self.complete_chatting_messages.extend([user_message, response])
@@ -489,6 +553,7 @@ def test_three_user_end_to_end_capture_and_protected_export(monkeypatch, tmp_pat
     # user message and one deterministic assistant response.
     assert len(exported["messages.csv"]) == 13
     assert len(exported["audio_recordings.csv"]) == 2
+    assert len(exported["participant_question_responses.csv"]) == 72
 
     conversations_by_source = {
         row["source_system"]: row for row in exported["conversations.csv"]

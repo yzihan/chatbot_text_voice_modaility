@@ -59,6 +59,7 @@ def create_quetion_nodes(question_indices: List[str]):
 
     # ------------------------- 1 to 23 -------------------------------
     for i in range(1, 24): 
+        question_index = question_indices[i - 1]
         node_i_0 = node_i_j(i, 0, question_indices, node_mappings_copy)
         node_i_1 = node_i_j(i, 1, question_indices, node_mappings_copy)
         node_i_2 = node_i_j(i, 2, question_indices, node_mappings_copy)
@@ -70,6 +71,11 @@ def create_quetion_nodes(question_indices: List[str]):
         node_i_2.info["progress"] = i
         node_i_3.info["progress"] = i     
         node_i_4.info["progress"] = i  
+        node_i_0.info["question_index"] = question_index
+        node_i_1.info["question_index"] = question_index
+        node_i_2.info["question_index"] = question_index
+        node_i_3.info["question_index"] = question_index
+        node_i_4.info["question_index"] = question_index
 
         connect_question_prompt(node_i_0, node_i_1, node_i_2)
 
@@ -96,6 +102,11 @@ def create_quetion_nodes(question_indices: List[str]):
     node_last_2 = node_i_j(len(question_indices), 2, question_indices, node_mappings_copy)
     node_last_3 = node_i_j(len(question_indices), 3, question_indices, node_mappings_copy)
     node_last_4 = node_i_j(len(question_indices), 4, question_indices, node_mappings_copy)
+
+    last_question_index = question_indices[-1]
+    for node in (node_last_0, node_last_1, node_last_2, node_last_3, node_last_4):
+        node.info["progress"] = len(question_indices)
+        node.info["question_index"] = last_question_index
 
     connect_question_prompt(node_last_0, node_last_1, node_last_2)
 

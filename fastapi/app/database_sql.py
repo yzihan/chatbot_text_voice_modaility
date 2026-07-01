@@ -54,7 +54,17 @@ def session_scope():
 
 def init_database() -> None:
     DEFAULT_DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    from sql_models import AudioRecording, Conversation, Message, Participant  # noqa: F401
+    from sql_models import (  # noqa: F401
+        AdminAuditLog,
+        AdminChatbotPermission,
+        AdminUser,
+        AudioRecording,
+        BackendRequestLog,
+        Conversation,
+        InteractionEvent,
+        Message,
+        Participant,
+    )
 
     Base.metadata.create_all(bind=engine)
     _ensure_schema_columns()
@@ -68,10 +78,15 @@ def _ensure_schema_columns() -> None:
     conversation_columns = {
         column["name"] for column in inspector.get_columns("conversations")
     }
-    if "question_sequence" in conversation_columns:
-        return
-
     with engine.begin() as connection:
-        connection.execute(
-            text("ALTER TABLE conversations ADD COLUMN question_sequence TEXT NOT NULL DEFAULT '[]'")
-        )
+        if "question_sequence" not in conversation_columns:
+            connection.execute(
+                text("ALTER TABLE conversations ADD COLUMN question_sequence TEXT NOT NULL DEFAULT '[]'")
+            )
+        message_columns = {
+            column["name"] for column in inspector.get_columns("messages")
+        }
+        if "metadata_json" not in message_columns:
+            connection.execute(
+                text("ALTER TABLE messages ADD COLUMN metadata_json TEXT")
+            )

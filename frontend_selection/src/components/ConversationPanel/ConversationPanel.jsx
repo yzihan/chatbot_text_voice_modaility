@@ -10,7 +10,7 @@ import { chatActions } from "../../reducers/chatSlicer";
 
 import ConversationMessage from "./ConversationMessage";
 import axios from "axios";
-import { chatRouter, newConversationRouter, voiceChatRouter } from "../../API/routers";
+import { chatRouter, interactionEventRouter, newConversationRouter, voiceChatRouter } from "../../API/routers";
 import { useNavigate } from "react-router-dom";
 
 import VoiceRecorder from "../VoiceRecorder/VoiceRecorder";
@@ -34,9 +34,26 @@ function ConversationPanel({messages, loadingText, streamMultipleLines}) {
     const [userInput, setUserInput] = useState("");
     const [submittedInput, setSubmittedInput] = useState("");
     const [submittedMessageMeta, setSubmittedMessageMeta] = useState(null);
+    const [responseStartedClientAt, setResponseStartedClientAt] = useState(null);
     // useRef
     const effectRan = useRef(false);  // make usre init only once
     const [submitTrigger, setSubmitTrigger] = useState(false); // trigger for submit user resp to backend
+
+    const recordInteraction = (event_type, target, metadata = {}) => {
+        axios.post(interactionEventRouter, {
+            participantID,
+            interviewID,
+            event_type,
+            page: "/chatbot",
+            target,
+            client_created_at: new Date().toISOString(),
+            metadata: {
+                inputMode,
+                currentProgress,
+                ...metadata,
+            },
+        }).catch(() => {});
+    };
   
 
     const onStop = async (blob) => {
@@ -99,10 +116,11 @@ function ConversationPanel({messages, loadingText, streamMultipleLines}) {
             selectionReasonClientAt: selectionReasonClientAt,
             source: "selection"
         })
-        .then((response) => {
+        .then(async (response) => {
             console.log(response.data)
             dispatch(chatActions.setInterviewID(response.data._id));
-            streamMultipleLines(response.data.question_data);
+            await streamMultipleLines(response.data.question_data);
+            setResponseStartedClientAt(new Date().toISOString());
         })
         .catch((err) => {
             console.log(err);
@@ -130,7 +148,15 @@ function ConversationPanel({messages, loadingText, streamMultipleLines}) {
             client_message_id: createClientMessageId(),
             client_created_at: new Date().toISOString(),
             input_method: inputMode,
+            response_started_client_at: responseStartedClientAt,
+            response_time_ms: responseStartedClientAt
+                ? Date.now() - new Date(responseStartedClientAt).getTime()
+                : null,
         };
+        recordInteraction("submit", "send-message", {
+            response_time_ms: messageMeta.response_time_ms,
+            response_started_client_at: responseStartedClientAt,
+        });
 
         dispatch(chatActions.addInterviewMessage({
             role: "user", 
@@ -178,8 +204,9 @@ function ConversationPanel({messages, loadingText, streamMultipleLines}) {
                     console.log(response.data);
 
 
-                    streamMultipleLines(response.data.question_data);  // This runs after streamToLastSection
+                    await streamMultipleLines(response.data.question_data);  // This runs after streamToLastSection
                     dispatch(chatActions.setIsEnded({isEnded: response.data.is_ending}))
+                    setResponseStartedClientAt(response.data.is_ending ? null : new Date().toISOString());
                     console.log(response.data.question_data);
                 } catch (err) {
                    console.log(err);
@@ -201,6 +228,7 @@ function ConversationPanel({messages, loadingText, streamMultipleLines}) {
     
 
     const goBack = () => {
+        recordInteraction(isEnded ? "exit" : "stop", isEnded ? "exit-chat" : "stop-chat");
         navigate("/")
     }
 

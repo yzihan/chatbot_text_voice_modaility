@@ -277,6 +277,7 @@ class ConversationEngine:
         client_created_at: Optional[str],
         input_method: str,
         server_received_at: str,
+        response_metadata: Optional[Dict] = None,
     ) -> Dict:
         """
         Main function for all question except first one.
@@ -303,6 +304,7 @@ class ConversationEngine:
                 "client_created_at": client_created_at,
                 "input_method": input_method,
                 "created_at": server_received_at,
+                "info": response_metadata or copy.deepcopy(self.current_node.info),
             }
             self.current_node.chatting_messsages.append(msg)
             self.complete_chatting_messages.append(msg)

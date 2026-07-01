@@ -15,6 +15,8 @@ REQUIRED_FILES = {
     "conversations.csv",
     "messages.csv",
     "audio_recordings.csv",
+    "interaction_events.csv",
+    "participant_question_responses.csv",
 }
 
 
@@ -44,6 +46,8 @@ def audit(export_path: Path) -> dict:
     conversations = {row["id"]: row for row in tables["conversations.csv"]}
     messages = tables["messages.csv"]
     audio_rows = tables["audio_recordings.csv"]
+    interaction_rows = tables["interaction_events.csv"]
+    participant_question_rows = tables["participant_question_responses.csv"]
     messages_by_id = {row["id"]: row for row in messages}
 
     if len(participants) != len(tables["participants.csv"]):
@@ -154,6 +158,46 @@ def audit(export_path: Path) -> dict:
         if audio["transcription_succeeded"] == "True" and not audio["raw_transcript"]:
             errors.append(f"Successful audio transcript is empty: {audio['id']}")
 
+    for event in interaction_rows:
+        if event["conversation_id"] and event["conversation_id"] not in conversations:
+            errors.append(f"Interaction has missing conversation: {event['id']}")
+        if event["participant_id"] and event["participant_id"] not in participants:
+            errors.append(f"Interaction has missing participant: {event['id']}")
+        if not event["event_type"]:
+            errors.append(f"Interaction event type missing: {event['id']}")
+        parse_timestamp(
+            event["server_received_at"],
+            f"interaction {event['id']} server_received_at",
+            errors,
+        )
+        if event["client_created_at"]:
+            parse_timestamp(
+                event["client_created_at"],
+                f"interaction {event['id']} client_created_at",
+                errors,
+            )
+
+    valid_conversation_question_pairs = set()
+    for conversation in conversations.values():
+        try:
+            question_sequence = json.loads(conversation["question_sequence"])
+        except json.JSONDecodeError:
+            errors.append(f"Invalid question sequence JSON: {conversation['id']}")
+            question_sequence = []
+        for question_index in question_sequence:
+            valid_conversation_question_pairs.add((conversation["id"], question_index))
+
+    for row in participant_question_rows:
+        key = (row["conversation_id"], row["question_index"])
+        if key not in valid_conversation_question_pairs:
+            errors.append(f"Participant-question row is not in assigned sequence: {key}")
+        if row["missing_response"] not in {"true", "false"}:
+            errors.append(f"Invalid missing_response value: {key}")
+        if row["missing_response"] == "true" and row["response_count"] != "0":
+            errors.append(f"Missing row has nonzero response count: {key}")
+        if row["missing_response"] == "false" and not row["primary_response"]:
+            errors.append(f"Non-missing row lacks primary response: {key}")
+
     return {
         "passed": not errors,
         "counts": {
@@ -161,6 +205,8 @@ def audit(export_path: Path) -> dict:
             "conversations": len(conversations),
             "messages": len(messages),
             "audio_recordings": len(audio_rows),
+            "interaction_events": len(interaction_rows),
+            "participant_question_responses": len(participant_question_rows),
         },
         "errors": errors,
     }
