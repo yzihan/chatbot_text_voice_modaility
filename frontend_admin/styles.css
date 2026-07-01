@@ -183,6 +183,8 @@ button {
 label {
   display: grid;
   gap: 6px;
+  min-width: 0;
+  line-height: 1.25;
   color: var(--muted);
   font-size: 13px;
   font-weight: 700;
@@ -191,6 +193,8 @@ label {
 input,
 select {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: 40px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -278,10 +282,36 @@ select {
 
 .filters {
   display: grid;
-  grid-template-columns: repeat(6, minmax(130px, 1fr)) auto auto;
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  column-gap: 14px;
+  row-gap: 16px;
   align-items: end;
+  padding-top: 8px;
   margin-bottom: 16px;
+}
+
+.filters button {
+  min-height: 42px;
+  white-space: nowrap;
+}
+
+.filters label:has(> input[type="checkbox"]) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+}
+
+.filters label > input[type="checkbox"] {
+  width: 16px;
+  min-width: 16px;
+  max-width: 16px;
+  min-height: 16px;
 }
 
 .split {
