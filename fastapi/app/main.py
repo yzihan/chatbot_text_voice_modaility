@@ -15,6 +15,8 @@ from fastapi import FastAPI, File, Form, Header, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
+from admin_repository import record_backend_step
+from admin_routes import router as admin_router
 from conversation_engine.engine import ConversationEngine
 from conversation_engine.logger import logger
 from conversation_engine.openai_api import send_audio
@@ -80,6 +82,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(admin_router)
 
 
 # engines
@@ -276,6 +279,10 @@ async def voice_recognition(
 @app.post("/chatbot/chat")
 async def continue_conversation(request: Request):
     pending_message = None
+    interviewID = None
+    client_message_id = None
+    participant_id = None
+    server_message_id = None
     try:
         body = await request.json()
         server_received_at = datetime.now(timezone.utc).isoformat()
@@ -289,24 +296,75 @@ async def continue_conversation(request: Request):
         client_created_at = body.get("client_created_at")
         input_method = body.get("input_method")
         participant_id = body.get("participantID")
+        record_backend_step(
+            "incoming_request",
+            "received",
+            conversation_id=interviewID,
+            client_message_id=client_message_id,
+            participant_key=participant_id,
+            metadata={
+                "has_audio": bool(audioFilepPath or audio_recording_ids or audio_file_paths),
+                "input_method": input_method,
+            },
+        )
         
 
         if not interviewID or user_resp is None or not str(user_resp).strip() or not participant_id:
+            record_backend_step(
+                "request_validation",
+                "failed",
+                conversation_id=interviewID,
+                client_message_id=client_message_id,
+                participant_key=participant_id,
+                detail="Missing interviewID, participantID, or user_resp",
+            )
             return error_response(400, "Missing 'interviewID', 'participantID', or 'user_resp'")
 
         try:
             parse_client_timestamp(client_created_at)
         except (TypeError, ValueError):
+            record_backend_step(
+                "request_validation",
+                "failed",
+                conversation_id=interviewID,
+                client_message_id=client_message_id,
+                participant_key=participant_id,
+                detail="client_created_at must be a valid ISO-8601 timestamp",
+            )
             return error_response(400, "client_created_at must be a valid ISO-8601 timestamp")
 
         if not conversation_belongs_to_participant(interviewID, participant_id):
+            record_backend_step(
+                "request_validation",
+                "failed",
+                conversation_id=interviewID,
+                client_message_id=client_message_id,
+                participant_key=participant_id,
+                detail="Conversation not found for participant",
+            )
             return error_response(404, "Conversation not found for participant")
 
         if client_message_exists(interviewID, client_message_id):
+            record_backend_step(
+                "request_validation",
+                "failed",
+                conversation_id=interviewID,
+                client_message_id=client_message_id,
+                participant_key=participant_id,
+                detail="Duplicate client_message_id",
+            )
             return error_response(409, "This message was already recorded")
 
         if interviewID not in engines:
             logger.debug(f"Conversation Expired: {interviewID}")
+            record_backend_step(
+                "engine_lookup",
+                "failed",
+                conversation_id=interviewID,
+                client_message_id=client_message_id,
+                participant_key=participant_id,
+                detail="Conversation engine expired",
+            )
             return error_response(404, "Your session expired! Please go back to home page and restart again!")
 
         engine = engines[interviewID]
@@ -334,12 +392,29 @@ async def continue_conversation(request: Request):
             "info": response_metadata,
         }
         record_pending_user_input(interviewID, pending_message)
+        record_backend_step(
+            "pending_message_saved",
+            "completed",
+            conversation_id=interviewID,
+            message_id=server_message_id,
+            client_message_id=client_message_id,
+            participant_key=participant_id,
+        )
         engines_last_updated_time[interviewID] = time.time()
 
         logger.debug(f"Chat Conversation: {interviewID}")
         logger.debug(f"Current Activate conversations: {engines_last_updated_time}")
 
         # Assuming this method is async
+        record_backend_step(
+            "backend_processing",
+            "started",
+            conversation_id=interviewID,
+            message_id=server_message_id,
+            client_message_id=client_message_id,
+            participant_key=participant_id,
+            metadata={"node_id": getattr(engine.current_node, "id", None)},
+        )
         data = await engine.process_user_response(
             user_resp,
             audioFilepPath,
@@ -360,6 +435,27 @@ async def continue_conversation(request: Request):
                 assistant_messages=data["messages_to_returned"],
                 questions_answered=engine._user_responses_received,
                 is_ending=data["is_ending"],
+            )
+            record_backend_step(
+                "api_model_call",
+                "completed",
+                conversation_id=interviewID,
+                message_id=server_message_id,
+                client_message_id=client_message_id,
+                participant_key=participant_id,
+                metadata={
+                    "assistant_messages": len(data["messages_to_returned"]),
+                    "is_ending": data["is_ending"],
+                    "response_metadata": response_metadata,
+                },
+            )
+            record_backend_step(
+                "returned_response",
+                "completed",
+                conversation_id=interviewID,
+                message_id=server_message_id,
+                client_message_id=client_message_id,
+                participant_key=participant_id,
             )
             engine.save_conversation_state()
             return {
@@ -388,6 +484,15 @@ async def continue_conversation(request: Request):
                 },
             )
             record_failed_user_input(interviewID, failed_message)
+            record_backend_step(
+                "api_model_call",
+                "failed",
+                conversation_id=interviewID,
+                message_id=server_message_id,
+                client_message_id=client_message_id,
+                participant_key=participant_id,
+                detail=data.get("error", "Unknown error"),
+            )
             logger.error(f"[/chatbot/chat]: {data.get('error', 'Unknown error')}")
             return error_response(500, f"Some error happened for chatting: {data.get('error', 'Unknown error')}")
 
@@ -397,6 +502,18 @@ async def continue_conversation(request: Request):
                 record_failed_user_input(pending_message["conversation_id"], pending_message)
             except Exception as record_error:
                 logger.error(f"Failed to mark user input as failed: {record_error}")
+        try:
+            record_backend_step(
+                "system_error",
+                "failed",
+                conversation_id=interviewID,
+                message_id=server_message_id,
+                client_message_id=client_message_id,
+                participant_key=participant_id,
+                detail=str(e),
+            )
+        except Exception as record_error:
+            logger.error(f"Failed to record backend request log: {record_error}")
         return error_response(500, f"Error for chatting: {str(e)}")
     
 @app.post("/chatbot/chat_history")

@@ -9,6 +9,7 @@ fastapi/app/                 Backend API, conversation engine, SQL models, expor
 frontend_selection/          Participant chooses keyboard or voice, then starts chat
 frontend_voice/              Direct voice-mode entry point
 frontend_keyboard/           Direct keyboard-mode entry point
+frontend_admin/              Separate admin monitoring dashboard for leaders
 question_preparation/        Question-selection provenance and audit materials
 nginx.config                 Production nginx example
 test_artifacts/              Generated local audit/export fixtures
@@ -45,9 +46,10 @@ Backend environment variables:
 
 ```text
 OPENAI_API_KEY=your_openai_api_key
-CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3001,http://127.0.0.1:3002,http://127.0.0.1:3003
+CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3001,http://127.0.0.1:3002,http://127.0.0.1:3003,http://127.0.0.1:3010
 DATABASE_URL=sqlite:///./database/chatbot.db
 DATA_EXPORT_TOKEN=replace_with_a_long_random_secret
+ADMIN_AUTH_SECRET=replace_with_a_different_long_random_secret
 ```
 
 Use PostgreSQL in production:
@@ -83,6 +85,44 @@ Local URLs:
 - Selection: `http://127.0.0.1:3001/chatbot/selection`
 - Voice: `http://127.0.0.1:3002/chatbot/voice`
 - Keyboard: `http://127.0.0.1:3003/chatbot/keyboard`
+
+Admin dashboard:
+
+```bash
+cd frontend_admin
+python3 -m http.server 3010
+```
+
+Open `http://127.0.0.1:3010`. The dashboard connects to `http://127.0.0.1:8000` by default, and the API host can be changed from the dashboard top bar.
+
+## Admin Monitoring Dashboard
+
+The separate `frontend_admin/` app lets project leaders monitor authorized chatbot data without manual database exports.
+
+Admin endpoints are under `/admin/*` and use bearer-token authentication. On first use, open the dashboard and create the first admin account from **First Admin Setup**. After one admin user exists, setup is disabled. Admins can create additional users, assign roles, and grant sub-chatbot access.
+
+Roles:
+
+- `admin`: all sub-chatbots, user/access management, CSV export, audit logs.
+- `project_leader`: assigned sub-chatbots, unmasked participant/message data, CSV export.
+- `viewer`: assigned sub-chatbots only, masked participant/message data, no CSV export.
+
+Sub-chatbot permission keys use the persisted source and modality fields:
+
+```text
+source_system:modality_group
+```
+
+Examples include `selection:keyboard`, `selection:voice`, `keyboard:keyboard`, and `voice:voice`.
+
+Dashboard features:
+
+- Overview cards for active sessions, completed sessions, total messages, failed requests, average response time, and most recent activity.
+- Near real-time polling every 5 seconds for newly submitted participant messages and backend status changes.
+- Session search/filter by sub-chatbot, participant/session ID, date range, completion status, and error status.
+- Conversation-level chronological view with user messages, chatbot responses, failed rows, timestamps, prompt/question metadata, latency, and backend request timeline.
+- Filtered message-level CSV export from `/admin/export/messages.csv`.
+- Audit logging for login, data views, session searches, exports, and access changes.
 
 ## Participant Flow
 

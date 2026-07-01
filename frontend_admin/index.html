@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chatbot Admin Monitor</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main id="app" class="shell">
+      <section id="authView" class="auth-layout">
+        <div>
+          <p class="eyebrow">Chatbot Admin</p>
+          <h1>Monitor study sessions and backend health.</h1>
+          <p class="muted">Sign in to inspect authorized sub-chatbots, session progress, request status, failures, and CSV exports.</p>
+        </div>
+        <form id="authForm" class="panel auth-panel">
+          <div class="tabs">
+            <button type="button" id="loginTab" class="tab active">Log In</button>
+            <button type="button" id="setupTab" class="tab">First Admin Setup</button>
+          </div>
+          <label>Email<input id="email" type="email" autocomplete="username" required /></label>
+          <label>Password<input id="password" type="password" autocomplete="current-password" required /></label>
+          <label id="displayNameRow" class="hidden">Display name<input id="displayName" type="text" /></label>
+          <button class="primary" type="submit">Continue</button>
+          <p id="authMessage" class="message"></p>
+        </form>
+      </section>
+
+      <section id="dashboardView" class="hidden dashboard">
+        <aside class="sidebar">
+          <div>
+            <p class="eyebrow">Admin Monitor</p>
+            <h2 id="currentUser">Dashboard</h2>
+          </div>
+          <nav>
+            <button class="nav active" data-view="overview">Overview</button>
+            <button class="nav" data-view="selection">Selection</button>
+            <button class="nav" data-view="interviews">Interviews</button>
+            <button class="nav" data-view="sessions">Sessions</button>
+            <button class="nav" data-view="access">Access</button>
+            <button class="nav" data-view="audit">Audit</button>
+          </nav>
+          <button id="logoutButton" class="secondary">Log Out</button>
+        </aside>
+
+        <section class="content">
+          <header class="topbar">
+            <div>
+              <h1 id="viewTitle">Overview</h1>
+              <p id="lastUpdated" class="muted">Waiting for data...</p>
+            </div>
+            <div class="toolbar">
+              <label class="compact">API<input id="apiHost" type="url" /></label>
+              <button id="refreshButton" class="secondary">Refresh</button>
+            </div>
+          </header>
+
+          <section id="overviewPanel" class="view-panel">
+            <div id="summaryCards" class="summary-grid"></div>
+          </section>
+
+          <section id="selectionPanel" class="view-panel hidden">
+            <form id="selectionFilterForm" class="filters">
+              <label>Mode<select id="selectionMode"><option value="">All</option><option value="voice">Voice</option><option value="keyboard">Keyboard</option></select></label>
+              <label>Participant/session<input id="selectionText" type="search" placeholder="ID contains..." /></label>
+              <label>Start<input id="selectionStart" type="datetime-local" /></label>
+              <label>End<input id="selectionEnd" type="datetime-local" /></label>
+              <label>Status<select id="selectionStatus"><option value="">All</option><option value="completed">Completed interview</option><option value="in_progress">In progress</option></select></label>
+              <button class="primary" type="submit">Apply</button>
+              <button id="selectionExportButton" class="secondary" type="button">Export Selection CSV</button>
+            </form>
+            <div id="selectionAttention" class="attention-strip"></div>
+            <div class="split">
+              <div class="panel table-panel">
+                <table>
+                  <thead><tr><th>Session / Participant</th><th>Status</th><th>Mode</th><th>Reason</th><th>Handoff</th><th>Messages</th><th>Failures</th><th>Start</th><th>End</th><th>Last Activity</th><th>Duration</th></tr></thead>
+                  <tbody id="selectionRows"></tbody>
+                </table>
+              </div>
+              <article id="selectionDetail" class="panel detail-panel">
+                <p class="muted">Select a Selection session to inspect status, reason, handoff, and transcript.</p>
+              </article>
+            </div>
+          </section>
+
+          <section id="interviewsPanel" class="view-panel hidden">
+            <form id="interviewFilterForm" class="filters">
+              <label>Chatbot<select id="interviewType"><option value="">All</option><option value="voice">Voice</option><option value="keyboard">Keyboard</option></select></label>
+              <label>Participant/session<input id="interviewText" type="search" placeholder="ID contains..." /></label>
+              <label>Status<select id="interviewStatus"><option value="">All</option><option value="completed">Completed</option><option value="in_progress">In progress</option></select></label>
+              <label>Input<select id="interviewInput"><option value="">All</option><option value="voice">Voice</option><option value="keyboard">Keyboard</option></select></label>
+              <label><input id="interviewFailures" type="checkbox" /> Has failures</label>
+              <label><input id="interviewStalled" type="checkbox" /> Stalled only</label>
+              <label><input id="interviewLowMessages" type="checkbox" /> Low messages</label>
+              <label><input id="interviewLongLatency" type="checkbox" /> Long latency</label>
+              <button class="primary" type="submit">Apply</button>
+              <button id="interviewExportButton" class="secondary" type="button">Export Interview CSV</button>
+            </form>
+            <div id="interviewAttention" class="attention-strip"></div>
+            <div class="split">
+              <div class="panel table-panel">
+                <table>
+                  <thead><tr><th>Session / Participant</th><th>Chatbot</th><th>Status</th><th>Progress</th><th>Messages</th><th>Failures</th><th>Error</th><th>Latency</th><th>Start</th><th>End</th><th>Last Activity</th><th>Duration</th></tr></thead>
+                  <tbody id="interviewRows"></tbody>
+                </table>
+              </div>
+              <article id="interviewDetail" class="panel detail-panel">
+                <p class="muted">Select an Interview session to inspect progress, latency, transcript, and modality-specific debugging.</p>
+              </article>
+            </div>
+          </section>
+
+          <section id="sessionsPanel" class="view-panel hidden">
+            <form id="filterForm" class="filters">
+              <label>Sub-chatbot<select id="filterChatbot"><option value="">All</option></select></label>
+              <label>Participant/session<input id="filterText" type="search" placeholder="ID contains..." /></label>
+              <label>Start<input id="filterStart" type="datetime-local" /></label>
+              <label>End<input id="filterEnd" type="datetime-local" /></label>
+              <label>Status<select id="filterStatus"><option value="">All</option><option value="in_progress">Active</option><option value="completed">Completed</option></select></label>
+              <label>Errors<select id="filterErrors"><option value="">All</option><option value="failed">Failed only</option><option value="ok">No failures</option></select></label>
+              <button class="primary" type="submit">Apply</button>
+              <button id="exportButton" class="secondary" type="button">Export CSV</button>
+            </form>
+            <div class="split">
+              <div class="panel table-panel">
+                <table>
+                  <thead><tr><th>Session</th><th>Chatbot</th><th>Status</th><th>Messages</th><th>Failures</th><th>Updated</th></tr></thead>
+                  <tbody id="sessionRows"></tbody>
+                </table>
+              </div>
+              <article id="conversationDetail" class="panel detail-panel">
+                <p class="muted">Select a session to inspect the full conversation and backend request timeline.</p>
+              </article>
+            </div>
+          </section>
+
+          <section id="accessPanel" class="view-panel hidden">
+            <div class="access-grid">
+              <form id="createUserForm" class="panel">
+                <h3>Create user</h3>
+                <label>Email<input id="newUserEmail" type="email" required /></label>
+                <label>Password<input id="newUserPassword" type="password" minlength="10" required /></label>
+                <label>Display name<input id="newUserName" type="text" /></label>
+                <label>Role<select id="newUserRole"><option value="viewer">Viewer</option><option value="project_leader">Project leader</option><option value="admin">Admin</option></select></label>
+                <label>Sub-chatbot keys<input id="newUserKeys" type="text" placeholder="selection:keyboard, voice:voice" /></label>
+                <button class="primary" type="submit">Create</button>
+              </form>
+              <div class="panel table-panel">
+                <h3>Users and access</h3>
+                <div id="userRows" class="user-list"></div>
+              </div>
+            </div>
+          </section>
+
+          <section id="auditPanel" class="view-panel hidden">
+            <div class="panel table-panel">
+              <table>
+                <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Resource</th></tr></thead>
+                <tbody id="auditRows"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+      </section>
+    </main>
+    <script src="./app.js"></script>
+  </body>
+</html>

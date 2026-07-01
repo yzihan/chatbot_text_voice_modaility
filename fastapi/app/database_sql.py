@@ -54,7 +54,17 @@ def session_scope():
 
 def init_database() -> None:
     DEFAULT_DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    from sql_models import AudioRecording, Conversation, InteractionEvent, Message, Participant  # noqa: F401
+    from sql_models import (  # noqa: F401
+        AdminAuditLog,
+        AdminChatbotPermission,
+        AdminUser,
+        AudioRecording,
+        BackendRequestLog,
+        Conversation,
+        InteractionEvent,
+        Message,
+        Participant,
+    )
 
     Base.metadata.create_all(bind=engine)
     _ensure_schema_columns()
